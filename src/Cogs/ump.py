@@ -172,11 +172,11 @@ class Ump(commands.Cog):
                     await awards_msg.edit(content='Closing out game, please wait...')
 
                     away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
-                    away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = ?''', (away_team[0][0],))
+                    away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
                     away_score = sheets.read_sheet(sheet_id, assets.calc_cell['away_score'])
 
                     home_team = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])
-                    home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = ?''', (home_team[0][0],))
+                    home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (home_team[0][0],))
                     home_score = sheets.read_sheet(sheet_id, assets.calc_cell['home_score'])
 
                     if len(home_team) > 0 and len(home_score) > 0 and len(away_team) > 0 and len(away_score) > 0:
@@ -206,11 +206,11 @@ class Ump(commands.Cog):
                             await ctx.send('Box score updated.')
                         else:
                             await ctx.send('I was not able to update the box score for you, please try again.')
-                        sql = '''UPDATE umpData SET sheetID=? WHERE sheetID = ?'''
+                        sql = '''UPDATE umpData SET sheetID=%s WHERE sheetID = %s'''
                         db.update_database(sql, ('update', sheet_id))
-                        sql = '''UPDATE umpData SET gameThread=? WHERE gameThread = ?'''
+                        sql = '''UPDATE umpData SET gameThread=%s WHERE gameThread = %s'''
                         db.update_database(sql, (None, thread))
-                        sql = '''SELECT * FROM umpData WHERE discordID=?'''
+                        sql = '''SELECT * FROM umpData WHERE discordID=%s'''
                         ump_data = db.fetch_data(sql, (ctx.author.id,))[0]
                         if ump_data[2] == 'update':
                             await ctx.send('Sheet ID reset.')
@@ -273,7 +273,7 @@ class Ump(commands.Cog):
             main = self.bot.get_guild(int(self.main_guild_id))
             discord_ping = None
             if batter_name:
-                batter_discord = db.fetch_data('''SELECT discordID, discordName FROM playerData WHERE playerName = ?''',
+                batter_discord = db.fetch_data('''SELECT discordID, discordName FROM playerData WHERE playerName = %s''',
                                                (batter_name[0][0],))
                 if not batter_discord:
                     data = sheets.read_sheet(sheet_id, assets.calc_cell['discord_ping'])
@@ -371,16 +371,16 @@ class Ump(commands.Cog):
                 body = raw_text(box_score)
                 thread = await reddit.post_thread(self.subreddit_name, thread_title, body)
                 await ctx.send(thread.url)
-                sql = '''UPDATE umpData SET gameThread=? WHERE discordID = ?'''
+                sql = '''UPDATE umpData SET gameThread=%s WHERE discordID = %s'''
                 db.update_database(sql, (thread.url, ctx.author.id))
                 start_game_command = '-startgame'
                 away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
-                away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = ?''', (away_team[0][0],))
+                away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
                 if len(away_team) > 0:
                     start_game_command += ' %s' % away_team[0]
 
                 home_team = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])
-                home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = ?''', (home_team[0][0],))
+                home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (home_team[0][0],))
                 if len(home_team) > 0:
                     start_game_command += ' %s' % home_team[0]
                 start_game_command += ' %s' % thread.url
@@ -461,12 +461,12 @@ class Ump(commands.Cog):
             away_team_name = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])[0][0]
             home_team_name = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])[0][0]
 
-            away_team = db.fetch_data('''SELECT * FROM teamData WHERE name = ?''', (away_team_name,))
+            away_team = db.fetch_data('''SELECT * FROM teamData WHERE name = %s''', (away_team_name,))
             if len(away_team) > 0:
                 away_team = away_team[0]
             else:
                 away_team = None
-            home_team = db.fetch_data('''SELECT * FROM teamData WHERE name = ?''', (home_team_name,))
+            home_team = db.fetch_data('''SELECT * FROM teamData WHERE name = %s''', (home_team_name,))
             if len(home_team) > 0:
                 home_team = home_team[0]
             else:
@@ -615,9 +615,9 @@ class Ump(commands.Cog):
     async def set_game_thread(self, ctx, reddit_url):
         if is_ump(ctx.author.id):
             standardize_url = await reddit.get_thread_url(reddit_url)
-            sql = '''UPDATE umpData SET gameThread=? WHERE discordID = ?'''
+            sql = '''UPDATE umpData SET gameThread=%s WHERE discordID = %s'''
             db.update_database(sql, (standardize_url.url, ctx.author.id))
-            url = db.fetch_data('''SELECT gameThread FROM umpData WHERE discordID = ?''', (ctx.author.id, ))
+            url = db.fetch_data('''SELECT gameThread FROM umpData WHERE discordID = %s''', (ctx.author.id, ))
             if url:
                 await ctx.send('Set game thread to %s' % url[0])
 
@@ -628,7 +628,7 @@ class Ump(commands.Cog):
         if is_ump(ctx.author.id):
             if 'docs.google.com/spreadsheets/' in sheet_id:
                 sheet_id = sheets.get_sheet_id(sheet_id)
-            sql = '''UPDATE umpData SET sheetID=? WHERE discordID = ?'''
+            sql = '''UPDATE umpData SET sheetID=%s WHERE discordID = %s'''
             db.update_database(sql, (sheet_id, ctx.author.id))
             await ctx.send('Set google sheet to https://docs.google.com/spreadsheets/d/%s' % sheet_id)
             discord_username = str(ctx.author)
@@ -713,7 +713,7 @@ async def at_bat_ping(bot, msg, channel_id):
 
 
 async def get_ump_data(ctx, discord_id):
-    sql = '''SELECT * FROM umpData WHERE discordID=?'''
+    sql = '''SELECT * FROM umpData WHERE discordID=%s'''
     ump_data = db.fetch_data(sql, (discord_id,))
     if len(ump_data) == 1:
         if ump_data[0][2] == 'update':
@@ -748,7 +748,7 @@ async def commit_at_bat(ctx, sheet_id):
 
 
 def is_ump(discord_id):
-    sql = '''SELECT * FROM umpData WHERE discordID=?'''
+    sql = '''SELECT * FROM umpData WHERE discordID=%s'''
     data = db.fetch_data(sql, (discord_id,))
     if len(data) == 1:
         return True

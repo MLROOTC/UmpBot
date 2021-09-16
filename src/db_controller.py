@@ -1,16 +1,19 @@
 import configparser
-import sqlite3
+import mysql.connector
 from sqlite3 import Error
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 db_name = config['Database']['database_name']
+host = config['MySQL']['host']
+username = config['MySQL']['username']
+password = config['MySQL']['password']
 
 
-def create_connection(db_file):
+def create_connection():
     this_connection = None
     try:
-        this_connection = sqlite3.connect(db_file, isolation_level=None)
+        this_connection = mysql.connector.connect(user=username, password=password, host=host, database=db_name)
     except Error as e:
         print(e)
     return this_connection
@@ -34,4 +37,4 @@ def update_database(sql_string, data):
         print(e)
 
 
-connection = create_connection(db_name)
+connection = create_connection()

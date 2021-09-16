@@ -22,9 +22,9 @@ class Admin(commands.Cog):
                                   ' Accepts the abbreviated team name and the URL as arguments.')
     @commands.has_role(ump_admin)
     async def add_webhook(self, ctx, team, *, url):
-        sql = '''UPDATE teamData SET webhook_url = ? WHERE abb=?'''
+        sql = '''UPDATE teamData SET webhook_url = %s WHERE abb=%s'''
         db.update_database(sql, (url, team.upper()))
-        db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = ?''', (team,))
+        db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = %s''', (team,))
         if db_team[0][4] == url:
             await ctx.send('Webhook URL set successfully.')
         else:
@@ -36,10 +36,10 @@ class Admin(commands.Cog):
     @commands.has_role(ump_admin)
     async def add_ump(self, ctx, member: discord.Member, player_id):
         player_id = int(player_id)
-        sql = '''SELECT * FROM playerData WHERE playerID=?'''
+        sql = '''SELECT * FROM playerData WHERE playerID=%s'''
         player = db.fetch_data(sql, (int(player_id),))
         ump_data = (player[0][1], member.id, player_id)
-        sql = '''INSERT INTO umpData(umpName, discordID, playerID) VALUES (?, ?, ?)'''
+        sql = '''INSERT INTO umpData(umpName, discordID, playerID) VALUES (%s, %s, %s)'''
         db.update_database(sql, ump_data)
         await ctx.send('%s added to ump database.' % member.display_name)
 
@@ -48,12 +48,12 @@ class Admin(commands.Cog):
     async def get_discord_ids(self, ctx):
         for guild in self.bot.guilds:
             for member in guild.members:
-                user = db.fetch_data('''SELECT discordName, discordID FROM playerData WHERE discordName=?''', (str(member),))
+                user = db.fetch_data('''SELECT discordName, discordID FROM playerData WHERE discordName=%s''', (str(member),))
                 if user:
                     user = user[0]
                     if not user[1]:
-                        db.update_database('''UPDATE playerData SET discordID=? WHERE discordName=?''', (member.id, str(member)))
-                        user = db.fetch_data('''SELECT discordName, discordID FROM playerData WHERE discordName=?''', (str(member),))
+                        db.update_database('''UPDATE playerData SET discordID=%s WHERE discordName=%s''', (member.id, str(member)))
+                        user = db.fetch_data('''SELECT discordName, discordID FROM playerData WHERE discordName=%s''', (str(member),))
                         if user[0][1]:
                             error_log.send('Added discord ID to database for <@%s>' % member.id)
                         else:
@@ -65,7 +65,7 @@ class Admin(commands.Cog):
                                   'argument.\n\nNote: Tech role is required to use this command.')
     @commands.has_role(ump_admin)
     async def remove_ump(self, ctx, member: discord.Member):
-        sql = '''DELETE FROM umpData WHERE discordID=?'''
+        sql = '''DELETE FROM umpData WHERE discordID=%s'''
         db.update_database(sql, (member.id,))
         await ctx.send('%s removed from ump database.' % member.display_name)
 
@@ -74,9 +74,9 @@ class Admin(commands.Cog):
                                   ' command.')
     @commands.has_role(ump_admin)
     async def remove_webhook(self, ctx, team):
-        sql = '''UPDATE teamData SET webhook_url = ? WHERE abb=?'''
+        sql = '''UPDATE teamData SET webhook_url = %s WHERE abb=%s'''
         db.update_database(sql, ('', team.upper()))
-        db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = ?''', (team,))
+        db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = %s''', (team,))
         if db_team[0][4] == '':
             await ctx.send('Webhook URL reset successfully.')
         else:
