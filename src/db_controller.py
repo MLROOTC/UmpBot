@@ -1,6 +1,5 @@
 import configparser
 import mysql.connector
-from sqlite3 import Error
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -14,7 +13,7 @@ def create_connection():
     this_connection = None
     try:
         this_connection = mysql.connector.connect(user=username, password=password, host=host, database=db_name)
-    except Error as e:
+    except mysql.connector.Error as e:
         print(e)
     return this_connection
 
@@ -24,7 +23,7 @@ def fetch_data(sql_query, data):
         cursor = connection.cursor()
         cursor.execute(sql_query, data)
         return cursor.fetchall()
-    except Error as e:
+    except mysql.connector.Error as e:
         print(e)
 
 
@@ -33,7 +32,7 @@ def update_database(sql_string, data):
         cursor = connection.cursor()
         cursor.execute(sql_string, data)
         connection.commit()
-    except Error as e:
+    except mysql.connector.Error as e:
         print(e)
 
 
