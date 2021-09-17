@@ -6,7 +6,6 @@
 ```
 [Discord]
 token = yourTokenHere
-prefix = .
 
 [Reddit]
 client_id=yourclientidhere
