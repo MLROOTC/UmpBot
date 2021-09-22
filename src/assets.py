@@ -123,3 +123,36 @@ milr_affiliate = {
     'TEX': 'SUP',
     'TOR': 'RBA'
 }
+
+stadium_image = {
+    'ARI': 'https://i.imgur.com/ZzNi54t.png',
+    'ATL': 'https://i.imgur.com/prvTr0u.png',
+    'BAL': 'https://i.imgur.com/nKEZqzw.png',
+    'BOS': 'https://i.imgur.com/kTFgR40.png',
+    'CHC': 'https://i.imgur.com/yPQk4bc.png',
+    'CIN': 'https://i.imgur.com/V3lU8rw.png',
+    'CLE': 'https://i.imgur.com/k6hCgre.png',
+    'COL': 'https://i.imgur.com/dRNnoo1.png',
+    'CWS': 'https://i.imgur.com/q3F5D9l.png',
+    'DET': 'https://i.imgur.com/qBGE3GV.png',
+    'HOU': 'https://i.imgur.com/wWma73L.png',
+    'KCR': 'https://i.imgur.com/Vq3EsTc.png',
+    'LAA': 'https://i.imgur.com/pXzslBP.png',
+    'LAD': 'https://i.imgur.com/h3y8OMU.png',
+    'MIA': 'https://i.imgur.com/ozdMxFF.png',
+    'MIL': 'https://i.imgur.com/7GiIIBP.png',
+    'MIN': 'https://i.imgur.com/cBZ6hap.png',
+    'MTL': 'https://i.imgur.com/0pHqrWB.png',
+    'NYM': 'https://i.imgur.com/0dG69NA.png',
+    'NYY': 'https://i.imgur.com/4zhZ8em.png',
+    'OAK': 'https://i.imgur.com/jMskirU.png',
+    'PHI': 'https://i.imgur.com/Ss28gcL.png',
+    'PIT': 'https://i.imgur.com/BCY71yA.png',
+    'SDP': 'https://i.imgur.com/BXGVWh3.png',
+    'SEA': 'https://i.imgur.com/WujQvK9.png',
+    'SFG': 'https://i.imgur.com/Uex5Rq9.png',
+    'STL': 'https://i.imgur.com/H6QrapF.png',
+    'TBR': 'https://i.imgur.com/q2sxEwi.png',
+    'TEX': 'https://i.imgur.com/usXdKAY.png',
+    'TOR': 'https://i.imgur.com/Nj3ncm5.png'
+}
