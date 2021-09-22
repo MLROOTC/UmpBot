@@ -90,7 +90,7 @@ class Player(commands.Cog):
         if claiming_account:
             await ctx.send('There is already a player associated with your discord account.')
             return
-        await ctx.send('Claim the following player%s')
+        await ctx.send('Claim the following player?')
         embed = player_embed(claiming_player)
         claim_msg = await ctx.send(embed=embed)
         await claim_msg.add_reaction('✅')
