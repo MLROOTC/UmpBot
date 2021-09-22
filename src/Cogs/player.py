@@ -48,7 +48,7 @@ class Player(commands.Cog):
         response = '%s batting against %s' % (batter[1], pitcher[1])
         if len(calc_data) > 4:
             park = calc_data[4]
-            park = db.fetch_data('''SELECT team, parkName FROM parkFactors WHERE team=?''', (park.upper(),))
+            park = db.fetch_data('''SELECT team, parkName FROM parkFactors WHERE team=%s''', (park.upper(),))
             response += ' at %s' % park[0][1]
             if not park:
                 await ctx.send('Park not found. Please try again.')
@@ -86,7 +86,7 @@ class Player(commands.Cog):
         if claiming_player[14]:
             await ctx.send('Player has already been claimed.')
             return
-        claiming_account = db.fetch_data('''SELECT * FROM playerData WHERE discordID = ?''', (ctx.author.id,))
+        claiming_account = db.fetch_data('''SELECT * FROM playerData WHERE discordID = %s''', (ctx.author.id,))
         if claiming_account:
             await ctx.send('There is already a player associated with your discord account.')
             return
@@ -116,7 +116,7 @@ class Player(commands.Cog):
 
             admin_react, admin_react_user = await self.bot.wait_for('reaction_add', timeout=None, check=approval)
             if admin_react.emoji == '✅':
-                db.update_database('''UPDATE playerData SET discordID=?, discordName=? WHERE playerID=?''', (ctx.author.id, str(ctx.author), claiming_player[0]))
+                db.update_database('''UPDATE playerData SET discordID=%s, discordName=%s WHERE playerID=%s''', (ctx.author.id, str(ctx.author), claiming_player[0]))
                 updated_player = await get_player(ctx, claiming_player[1])
                 if updated_player[14]:
                     await ctx.author.send(content='Your request to claim the following player has been approved.', embed=player_embed(updated_player))
@@ -134,7 +134,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -155,7 +155,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -176,7 +176,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -197,7 +197,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -251,7 +251,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -271,7 +271,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -292,7 +292,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -321,7 +321,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -361,7 +361,7 @@ class Player(commands.Cog):
 
         if len(players) >= 3:
             park = players[2]
-            park = db.fetch_data('''SELECT team, parkName FROM parkFactors WHERE team=?''', (park.upper(),))
+            park = db.fetch_data('''SELECT team, parkName FROM parkFactors WHERE team=%s''', (park.upper(),))
             if not park:
                 await ctx.send('Park not found. Please try again.')
             response += ' at %s' % park[0][1]
@@ -447,7 +447,7 @@ class Player(commands.Cog):
         if playername:
             player = await get_player(ctx, playername)
         else:
-            sql = '''SELECT * from PlayerData WHERE discordID=?'''
+            sql = '''SELECT * from playerData WHERE discordID=%s'''
             player = db.fetch_data(sql, (ctx.author.id,))
             if player:
                 player = player[0]
@@ -524,12 +524,12 @@ def calculate_diff(pitch, swing):
 
 
 def calculate_ranges(batting_type, pitching_type, hand_bonus, park):
-    batting_ranges = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB, rangeFO, rangeK, rangePO, rangeRGO, rangeLGO FROM battingTypes WHERE type=? ''', (batting_type,))[0]
-    pitching_ranges = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB, rangeFO, rangeK, rangePO, rangeRGO, rangeLGO FROM pitchingTypes WHERE type=? ''', (pitching_type,))[0]
+    batting_ranges = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB, rangeFO, rangeK, rangePO, rangeRGO, rangeLGO FROM battingTypes WHERE type=%s ''', (batting_type,))[0]
+    pitching_ranges = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB, rangeFO, rangeK, rangePO, rangeRGO, rangeLGO FROM pitchingTypes WHERE type=%s ''', (pitching_type,))[0]
     if hand_bonus:
-        hand_bonus_ranges = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB, rangeFO, rangeK, rangePO, rangeRGO, rangeLGO FROM handBonuses WHERE type=? ''',(hand_bonus,))[0]
+        hand_bonus_ranges = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB, rangeFO, rangeK, rangePO, rangeRGO, rangeLGO FROM handBonuses WHERE type=%s ''',(hand_bonus,))[0]
     if park:
-        park_factors = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB FROM parkFactors WHERE team=? ''',(park,))[0]
+        park_factors = db.fetch_data('''SELECT rangeHR, range3B, range2B, range1B, rangeBB FROM parkFactors WHERE team=%s ''', (park,))[0]
 
     result_types = ['HR', '3B', '2B', '1B', 'BB', 'FO', 'K', 'PO', 'RGO', 'LGO']
     ranges = []
@@ -560,7 +560,7 @@ def calculate_ranges(batting_type, pitching_type, hand_bonus, park):
 
 
 async def get_player(ctx, name):
-    sql = '''SELECT * from PlayerData WHERE playerName LIKE ?'''
+    sql = '''SELECT * from playerData WHERE playerName LIKE %s'''
     players = db.fetch_data(sql, ('%'+name+'%',))
     if len(players) == 1:
         return players[0]
@@ -597,10 +597,14 @@ def player_embed(player):
         positions += '/' + tertiary_position
 
     if team:
-        team = db.fetch_data('SELECT * FROM teamData WHERE abb=?', (team,))[0]
-        embed_color = discord.Color(value=int(team[2], 16))
-        embed = discord.Embed(title=player_name, color=embed_color)
-        embed.set_thumbnail(url=team[3])
+        team = db.fetch_data('SELECT * FROM teamData WHERE abb=%s', (team,))
+        if team:
+            team = team[0]
+            embed_color = discord.Color(value=int(team[2], 16))
+            embed = discord.Embed(title=player_name, color=embed_color)
+            embed.set_thumbnail(url=team[3])
+        else:
+            embed = discord.Embed(title=player_name)
     else:
         embed = discord.Embed(title=player_name)
     embed.add_field(name='Hand', value=hand, inline=True)
@@ -645,12 +649,12 @@ def pstats_embed(player, league):
             whip = p[70]
             pwar = p[83]
             title = player[1]
-            pitching_type = db.fetch_data('''SELECT name FROM pitchingTypes WHERE type = ?''', (player[4],))
+            pitching_type = db.fetch_data('''SELECT name FROM pitchingTypes WHERE type = %s''', (player[4],))
             if pitching_type:
                 pitching_type = pitching_type[0][0]
             else:
                 pitching_type = player[4]
-            hand_bonus = db.fetch_data('''SELECT name FROM handBonuses WHERE type = ?''', (player[5],))
+            hand_bonus = db.fetch_data('''SELECT name FROM handBonuses WHERE type = %s''', (player[5],))
             if hand_bonus:
                 hand_bonus = hand_bonus[0][0]
             else:
@@ -658,9 +662,9 @@ def pstats_embed(player, league):
             description = '%s (%s) | %s' % (pitching_type, hand_bonus, player[6])
             if player[2]:
                 if league == 'mlr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=?''', (player[2],))
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
                 elif league == 'milr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=?''', (assets.milr_affiliate[player[2]],))
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (assets.milr_affiliate[player[2]],))
                 else:
                     team = None
                 if team:
@@ -718,7 +722,7 @@ def stats_embed(player, league):
             dpa = p[38]
             war = p[40]
             title = player[1]
-            batting_type = db.fetch_data('''SELECT name FROM battingTypes WHERE type = ?''', (player[3],))
+            batting_type = db.fetch_data('''SELECT name FROM battingTypes WHERE type = %s''', (player[3],))
             if batting_type:
                 batting_type = batting_type[0][0]
             else:
@@ -726,9 +730,9 @@ def stats_embed(player, league):
             description = '%s | %s ' % (batting_type, player[6])
             if player[2]:
                 if league == 'mlr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=?''', (player[2],))
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
                 elif league == 'milr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=?''', (assets.milr_affiliate[player[2]],))
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (assets.milr_affiliate[player[2]],))
                 else:
                     team = None
                 if team:
@@ -759,12 +763,12 @@ def stats_embed(player, league):
 
 def team_embed(team_abbr):
     team_abbr = team_abbr.upper()
-    team = db.fetch_data('SELECT * FROM teamData WHERE abb=?', (team_abbr,))
+    team = db.fetch_data('SELECT * FROM teamData WHERE abb=%s', (team_abbr,))
     if team:
         team = team[0]
     else:
         return None
-    park = db.fetch_data('''SELECT * FROM parkFactors where team=?''', (team_abbr,))
+    park = db.fetch_data('''SELECT * FROM parkFactors where team=%s''', (team_abbr,))
     embed_color = discord.Color(value=int(team[2], 16))
     embed = discord.Embed(title=team[0], color=embed_color)
     embed.set_thumbnail(url=team[3])

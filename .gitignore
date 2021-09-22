@@ -139,3 +139,10 @@ src/config.ini
 src/credentials.json
 src/token.pickle
 src/MLRdata.db
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/inspectionProfiles/Project_Default.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/UmpBot.iml
+.idea/vcs.xml
+.idea/workspace.xml
