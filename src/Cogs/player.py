@@ -597,10 +597,14 @@ def player_embed(player):
         positions += '/' + tertiary_position
 
     if team:
-        team = db.fetch_data('SELECT * FROM teamData WHERE abb=%s', (team,))[0]
-        embed_color = discord.Color(value=int(team[2], 16))
-        embed = discord.Embed(title=player_name, color=embed_color)
-        embed.set_thumbnail(url=team[3])
+        team = db.fetch_data('SELECT * FROM teamData WHERE abb=%s', (team,))
+        if team:
+            team = team[0]
+            embed_color = discord.Color(value=int(team[2], 16))
+            embed = discord.Embed(title=player_name, color=embed_color)
+            embed.set_thumbnail(url=team[3])
+        else:
+            embed = discord.Embed(title=player_name)
     else:
         embed = discord.Embed(title=player_name)
     embed.add_field(name='Hand', value=hand, inline=True)
