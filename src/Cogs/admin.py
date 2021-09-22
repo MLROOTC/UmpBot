@@ -15,6 +15,7 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont, ImageOps
 config = configparser.ConfigParser()
 config.read('config.ini')
 ump_admin = int(config['Discord']['ump_admin_role'])
+league_ops_role = int(config['Discord']['league_ops_role'])
 error_log = Webhook(config['Channels']['error_log_webhook'])
 
 
@@ -51,7 +52,7 @@ class Admin(commands.Cog):
         db.update_database(sql, ump_data)
         await ctx.send('%s added to ump database.' % member.display_name)
 
-    @commands.has_role(ump_admin)
+    @commands.has_role(league_ops_role)
     @commands.command(brief='',
                       description='')
     async def draft(self, ctx, draft_round, draft_pick, team, *, player_name):
