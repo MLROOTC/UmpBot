@@ -116,7 +116,11 @@ class Ump(commands.Cog):
             sheet_id = config[2]
             valid_events = ['Swing', 'Auto K', 'Auto BB', 'Bunt', 'Steal 2B', 'Steal 3B', 'Steal Home', 'Infield In',
                             'IBB']
-            if event_type not in valid_events:
+            # Kinda hacky, but this will match a case whatever input to a properly cased version for the sheet.
+            try:
+                event_type = next(event for event in valid_events if event_type.lower() == event.lower())
+            except StopIteration:
+                # next() raises a StopIteration error, so we can just put the previous code into here.
                 await ctx.send('%s is not a valid event type. Please use: %s' % (event_type, valid_events))
             else:
                 if event_type in ['Auto K', 'Auto BB', 'IBB']:
