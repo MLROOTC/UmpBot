@@ -24,7 +24,7 @@ subreddit_name = config['Reddit']['subreddit_name']
 
 
 def get_discord_ids(thread_url):
-    sql = '''SELECT discordID FROM umpData WHERE gameThread=?'''
+    sql = '''SELECT discordID FROM umpData WHERE gameThread= %s'''
     return db.fetch_data(sql, (thread_url,))
 
 
