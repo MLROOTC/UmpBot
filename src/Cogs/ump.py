@@ -114,12 +114,12 @@ class Ump(commands.Cog):
         config = await get_ump_data(ctx, ctx.author.id)
         if config:
             sheet_id = config[2]
-            valid_events = ['Swing', 'Auto K', 'Auto BB', 'Bunt', 'Steal 2B', 'Steal 3B', 'Steal Home', 'Infield In',
-                            'IBB']
-            if event_type not in valid_events:
+            valid_events = ['swing', 'auto k', 'auto bb', 'bunt', 'steal 2b', 'steal 3b', 'steal home', 'infield in',
+                            'ibb']
+            if event_type.lower() not in valid_events:
                 await ctx.send('%s is not a valid event type. Please use: %s' % (event_type, valid_events))
             else:
-                if event_type in ['Auto K', 'Auto BB', 'IBB']:
+                if event_type.lower() in ['auto k', 'auto bb', 'ibb']:
                     await reset(ctx, sheet_id)
                 check_event = sheets.update_sheet(sheet_id, assets.calc_cell['event'], event_type)
                 if check_event:
