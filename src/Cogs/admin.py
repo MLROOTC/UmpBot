@@ -88,7 +88,6 @@ class Admin(commands.Cog):
         img = Image.blend(img, overlay, 0.2)
         overlay = Image.new(mode='RGB', size=image_size, color=(0, 0, 0))
         img = Image.blend(img, overlay, 0.7)
-        img = ImageOps.expand(img, border=20, fill=(0, 0, 0))
         img = ImageOps.expand(img, border=20, fill=(255, 255, 255))
 
         # Team Logo
