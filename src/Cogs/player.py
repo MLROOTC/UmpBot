@@ -64,9 +64,15 @@ class Player(commands.Cog):
             pitching_type = 'POS'
             response += '\n*Warning, %s is using the position player pitching batting type.*' % pitcher[1]
 
+        if batter[3]:
+            batting_type = batter[3]
+        else:
+            batting_type = 'P'
+            response += '\n*Warning, %s is using the pitcher batting type.*' % batter[1]
+
         if batter[6] == pitcher[6]:
             hand_bonus = pitcher[5]
-        ranges = calculate_ranges(batter[3], pitching_type, hand_bonus, park)
+        ranges = calculate_ranges(batting_type, pitching_type, hand_bonus, park)
         diff = calculate_diff(pitch, swing)
         total = 0
         for i in range(len(ranges)):
@@ -376,10 +382,16 @@ class Player(commands.Cog):
             pitching_type = 'POS'
             response += '\n*Warning, %s is using the position player pitching batting type.*' % pitcher[1]
 
+        if batter[3]:
+            batting_type = batter[3]
+        else:
+            batting_type = 'P'
+            response += '\n*Warning, %s is using the pitcher batting type.*' % batter[1]
+
         if batter[6] == pitcher[6]:
             hand_bonus = pitcher[5]
 
-        ranges = calculate_ranges(batter[3], pitching_type, hand_bonus, park)
+        ranges = calculate_ranges(batting_type, pitching_type, hand_bonus, park)
 
         if if_in:
             ranges[3] += 18
