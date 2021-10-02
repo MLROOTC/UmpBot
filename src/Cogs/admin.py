@@ -87,15 +87,16 @@ class Admin(commands.Cog):
                       description='Set season number in the config.')
     @commands.has_role(ump_admin)
     async def set_season(self, ctx, league, season):
-        write_config(league_config, league, 'season', season)
-        await ctx.send('Season set to %s.' % read_config(league_config, league, 'season'))
+        write_config(league_config, league.upper(), 'season', season)
+        await ctx.send('%s season set to %s.' % (league, read_config(league_config, league.upper(), 'season')))
 
     @commands.command(brief='Set session number',
                       description='Sets session number in the config.')
     @commands.has_role(ump_admin)
     async def set_session(self, ctx, league, season):
-        write_config(league_config, league, 'session', season)
-        await ctx.send('Session set to %s.' % read_config(league_config, league, 'session'))
+        write_config(league_config, league.upper(), 'session', season)
+        await ctx.send('%s session set to %s.' % (league, read_config(league_config, league.upper(), 'session')))
+
 
 def setup(bot):
     bot.add_cog(Admin(bot))
