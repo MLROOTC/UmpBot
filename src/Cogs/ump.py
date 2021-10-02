@@ -12,7 +12,7 @@ from dhooks import Webhook
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 ump_role = int(config_ini['Discord']['ump_role'])
-league_config = 'session_data.ini'
+league_config = 'league.ini'
 
 
 class Ump(commands.Cog):
@@ -647,11 +647,11 @@ class Ump(commands.Cog):
     @commands.command(brief='Game setup',
                       description='')
     @commands.has_role(ump_role)
-    async def setup(self, ctx, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
+    async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
                     ump5: discord.Member = None, ump6: discord.Member = None):
         await ctx.message.add_reaction('<a:baseball:872894282032365618>')
-        season = read_config(league_config, 'Data', 'Season')
-        session = read_config(league_config, 'Data', 'Session')
+        season = read_config(league_config, league.upper(), 'Season')
+        session = read_config(league_config, league.upper(), 'Session')
         title = '%s.%s - Ump Helper - %s' % (season, session, ctx.author.display_name)
         ump_list = [ctx.author.id]
         if ump2:
@@ -669,9 +669,9 @@ class Ump(commands.Cog):
         if ump6:
             title += ' %s' % ump6.display_name
             ump_list.append(ump6.id)
-        sheet_id = sheets.copy_ump_sheet(config_ini['Database']['base_ump_helper_sheet'], title)
+        sheet_id = sheets.copy_ump_sheet(read_config(league_config, league.upper(), 'sheet'), title)
         for ump in ump_list:
-            sql = '''UPDATE umpData SET sheetID=? WHERE discordID = ?'''
+            sql = '''UPDATE umpData SET sheetID= %s WHERE discordID = %s'''
             db.update_database(sql, (sheet_id, ump))
         await ctx.message.remove_reaction('<a:baseball:872894282032365618>', ctx.bot.user)
         await ctx.message.add_reaction('✅')
