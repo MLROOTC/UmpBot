@@ -12,6 +12,7 @@ from dhooks import Webhook
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 ump_role = int(config_ini['Discord']['ump_role'])
+league_config = 'league.ini'
 
 
 class Ump(commands.Cog):
@@ -643,6 +644,40 @@ class Ump(commands.Cog):
                                        'https://docs.google.com/spreadsheets/d/%s' % sheet_id)
                     break
 
+    @commands.command(brief='Game setup',
+                      description='')
+    @commands.has_role(ump_role)
+    async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
+                    ump5: discord.Member = None, ump6: discord.Member = None):
+        await ctx.message.add_reaction('<a:baseball:872894282032365618>')
+        season = read_config(league_config, league.upper(), 'Season')
+        session = read_config(league_config, league.upper(), 'Session')
+        title = '%s.%s - Ump Helper - %s' % (season, session, ctx.author.display_name)
+        ump_list = [ctx.author.id]
+        if ump2:
+            title += ' %s' % ump2.display_name
+            ump_list.append(ump2.id)
+        if ump3:
+            title += ' %s' % ump3.display_name
+            ump_list.append(ump3.id)
+        if ump4:
+            title += ' %s' % ump4.display_name
+            ump_list.append(ump4.id)
+        if ump5:
+            title += ' %s' % ump5.display_name
+            ump_list.append(ump5.id)
+        if ump6:
+            title += ' %s' % ump6.display_name
+            ump_list.append(ump6.id)
+        sheet_id = sheets.copy_ump_sheet(read_config(league_config, league.upper(), 'sheet'), title)
+        for ump in ump_list:
+            sql = '''UPDATE umpData SET sheetID= %s WHERE discordID = %s'''
+            db.update_database(sql, (sheet_id, ump))
+        await ctx.message.remove_reaction('<a:baseball:872894282032365618>', ctx.bot.user)
+        await ctx.message.add_reaction('✅')
+        await ctx.send(
+            'I have created a copy of the ump helper sheet for you. Open this link and set the lineups. \nhttps://docs.google.com/spreadsheets/d/%s\n\nWhen you\'re done use .post_thread to complete game setup.' % sheet_id)
+
     @commands.command(brief='Returns ump helper sheet for game',
                       description='Returns a link to the google sheet calculator in the database.')
     @commands.has_role(ump_role)
@@ -773,6 +808,12 @@ def raw_text(rows):
             string += row[0]
         string += "\n"
     return string
+
+
+def read_config(filename, section, setting):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    return ini_file[section][setting]
 
 
 async def reset(ctx, sheet_id):

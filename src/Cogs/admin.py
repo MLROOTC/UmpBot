@@ -17,6 +17,7 @@ config.read('config.ini')
 ump_admin = int(config['Discord']['ump_admin_role'])
 league_ops_role = int(config['Discord']['league_ops_role'])
 error_log = Webhook(config['Channels']['error_log_webhook'])
+league_config = 'league.ini'
 
 
 class Admin(commands.Cog):
@@ -184,6 +185,35 @@ class Admin(commands.Cog):
         else:
             await ctx.send('Something went wrong.')
 
+    @commands.command(brief='Set season number',
+                      description='Set season number in the config.')
+    @commands.has_role(ump_admin)
+    async def set_season(self, ctx, league, season):
+        write_config(league_config, league.upper(), 'season', season)
+        await ctx.send('%s season set to %s.' % (league, read_config(league_config, league.upper(), 'season')))
+
+    @commands.command(brief='Set session number',
+                      description='Sets session number in the config.')
+    @commands.has_role(ump_admin)
+    async def set_session(self, ctx, league, season):
+        write_config(league_config, league.upper(), 'session', season)
+        await ctx.send('%s session set to %s.' % (league, read_config(league_config, league.upper(), 'session')))
+
 
 def setup(bot):
     bot.add_cog(Admin(bot))
+
+
+def read_config(filename, section, setting):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    return ini_file[section][setting]
+
+
+def write_config(filename, section, setting, value):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    ini_file.set(section, setting, value)
+    with open(filename, 'w') as configfile:
+        ini_file.write(configfile)
+
