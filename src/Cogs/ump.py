@@ -608,6 +608,7 @@ class Ump(commands.Cog):
                       description='Rolls back the last entry into the game log.')
     @commands.has_role(ump_role)
     async def rollback(self, ctx):
+        await ctx.message.add_reaction(loading_emote)
         config = await get_ump_data(ctx, ctx.author.id)
         if config:
             sheet_id = config[2]
@@ -622,6 +623,7 @@ class Ump(commands.Cog):
                 result_txt += '\nDiff: %s' % game_log[5]
             if len(game_log) >= 7:
                 result_txt += ' > %s' % game_log[6]
+            await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
             rollback_msg = await ctx.send('Clear last result?```%s```React to this message with ⚾ to confirm or 👎 to '
                                           'cancel.' % result_txt)
             await rollback_msg.add_reaction('\N{baseball}')
@@ -633,6 +635,18 @@ class Ump(commands.Cog):
 
             reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
             if reaction.emoji == '\N{baseball}':
+                play_number = sheets.read_sheet(sheet_id, assets.calc_cell['play_number'])
+                if play_number:
+                    play_number = play_number[0][0]
+                    play_number = int(play_number) - 1
+                sql = '''SELECT league, season, session, gameID FROM gameData WHERE sheetID=%s'''
+                game_data = db.fetch_data(sql, (sheet_id,))
+                if game_data:
+                    game_data = game_data[0]
+                    pa_id = get_pa_id(game_data[0], game_data[1], game_data[2], game_data[3], play_number)
+                    sql = '''DELETE FROM PALogs WHERE paID=%s'''
+                    db.update_database(sql, (pa_id,))
+                    await ctx.send('Play removed from database, removing from ump helper sheet...')
                 sheets.update_sheet(sheet_id, 'Game Log!G%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!H%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!I%s' % index, '', lazy=True)
