@@ -397,8 +397,8 @@ class Ump(commands.Cog):
                     await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
                     await ctx.message.add_reaction('✅')
                     await ctx.send(thread.url)
-                    sql = '''UPDATE umpData SET gameThread=%s WHERE discordID = %s'''
-                    db.update_database(sql, (thread.url, ctx.author.id))
+                    sql = '''UPDATE umpData SET gameThread=%s WHERE sheetID = %s'''
+                    db.update_database(sql, (thread.url, sheet_id))
                     start_game_command = '-startgame'
                     away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
                     away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
