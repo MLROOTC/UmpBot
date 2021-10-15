@@ -13,6 +13,7 @@ config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 ump_role = int(config_ini['Discord']['ump_role'])
 league_config = 'league.ini'
+loading_emote = '<a:baseball:872894282032365618>'
 
 
 class Ump(commands.Cog):
@@ -171,6 +172,25 @@ class Ump(commands.Cog):
                 awards_reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
                 if awards_reaction.emoji == '👍':
                     await awards_msg.edit(content='Closing out game, please wait...')
+                    sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
+                    winning_pitcher_id = db.fetch_data(sql, ('%' + winning_pitcher + '%',))
+                    losing_pitcher_id = db.fetch_data(sql, ('%' + losing_pitcher + '%',))
+                    if save:
+                        save_id = db.fetch_data(sql, ('%' + save + '%',))
+                    else:
+                        save_id = None
+                    player_of_game_id = db.fetch_data(sql, ('%' + player_of_game + '%',))
+                    if winning_pitcher_id:
+                        winning_pitcher_id = winning_pitcher_id[0][0]
+                    if losing_pitcher_id:
+                        losing_pitcher_id = losing_pitcher_id[0][0]
+                    if save_id:
+                        save_id = save_id[0][0]
+                    if player_of_game_id:
+                        player_of_game_id = player_of_game_id[0][0]
+                    sql = '''UPDATE gameData SET complete=%s, winningPitcher=%s, losingPitcher=%s, save=%s, potg=%s WHERE sheetID=%s'''
+                    update_game_log = (1, winning_pitcher_id, losing_pitcher_id, save_id, player_of_game_id, sheet_id)
+                    db.update_database(sql, update_game_log)
 
                     away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
                     away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
@@ -341,53 +361,67 @@ class Ump(commands.Cog):
                                   ' thread on reddit.')
     @commands.has_role(ump_role)
     async def post_thread(self, ctx, *, custom_text=None):
+        await ctx.message.add_reaction(loading_emote)
         config = await get_ump_data(ctx, ctx.author.id)
         if config:
             sheet_id = config[2]
-            lineup_check = sheets.read_sheet(sheet_id, assets.calc_cell['lineup_check'])[0]
-            if lineup_check[0] == 'That\'s a good lineup!' and lineup_check[3] == 'That\'s a good lineup!':
-                game_data = sheets.read_sheet(sheet_id, assets.calc_cell['game_data'])[0]
-                box_score = sheets.read_sheet(sheet_id, assets.calc_cell['boxscore'])
-                season_session = sheets.read_sheet(self.master_ump_sheet, assets.calc_cell['season_session'])[0][0]
-                away_team = game_data[0]
-                home_team = game_data[3]
-                away_team = away_team.title()
-                home_team = home_team.title()
-                away_team = away_team.replace('\'S', '\'s')
-                home_team = home_team.replace('\'S', '\'s')
+            lineup_check = sheets.read_sheet(sheet_id, assets.calc_cell['lineup_check'])
+            if lineup_check:
+                lineup_check = lineup_check[0]
+                if lineup_check[0] == 'That\'s a good lineup!' and lineup_check[3] == 'That\'s a good lineup!':
+                    game_data = sheets.read_sheet(sheet_id, assets.calc_cell['game_data'])[0]
+                    box_score = sheets.read_sheet(sheet_id, assets.calc_cell['boxscore'])
+                    season_session = sheets.read_sheet(self.master_ump_sheet, assets.calc_cell['season_session'])[0][0]
+                    away_team = game_data[0]
+                    home_team = game_data[3]
+                    away_team = away_team.title()
+                    home_team = home_team.title()
+                    away_team = away_team.replace('\'S', '\'s')
+                    home_team = home_team.replace('\'S', '\'s')
 
-                milr = game_data[5]
-                thread_title = ''
-                if milr == 'TRUE':
-                    thread_title += '[MiLR'
-                elif milr == 'FALSE':
-                    thread_title += '[MLR'
+                    milr = game_data[5]
+                    thread_title = ''
+                    if milr == 'TRUE':
+                        thread_title += '[MiLR'
+                    elif milr == 'FALSE':
+                        thread_title += '[MLR'
+                    else:
+                        thread_title += '[FCB'
+                    thread_title += ' %s.%s%s Game Thread] %s at %s' % (season_session[0], season_session[1],
+                                                                        season_session[2], away_team.title(),
+                                                                        home_team.title())
+                    if custom_text:
+                        thread_title += ' - %s' % custom_text
+                    body = raw_text(box_score)
+                    thread = await reddit.post_thread(self.subreddit_name, thread_title, body)
+                    await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
+                    await ctx.message.add_reaction('✅')
+                    await ctx.send(thread.url)
+                    sql = '''UPDATE umpData SET gameThread=%s WHERE discordID = %s'''
+                    db.update_database(sql, (thread.url, ctx.author.id))
+                    start_game_command = '-startgame'
+                    away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
+                    away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
+                    if len(away_team) > 0:
+                        start_game_command += ' %s' % away_team[0]
+
+                    home_team = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])
+                    home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (home_team[0][0],))
+                    if len(home_team) > 0:
+                        start_game_command += ' %s' % home_team[0]
+                    start_game_command += ' %s' % thread.url
+                    sql = '''UPDATE gameData SET threadURL=%s, awayTeam=%s, homeTeam=%s WHERE sheetID=%s'''
+                    update_game_log = (thread.url, away_team[0][0], home_team[0][0], sheet_id)
+                    db.update_database(sql, update_game_log)
+                    await ctx.send('Game thread set. Play ball!')
+                    await ctx.send(start_game_command)
                 else:
-                    thread_title += '[FCB'
-                thread_title += ' %s.%s%s Game Thread] %s at %s' % (season_session[0], season_session[1],
-                                                                    season_session[2], away_team.title(),
-                                                                    home_team.title())
-                if custom_text:
-                    thread_title += ' - %s' % custom_text
-                body = raw_text(box_score)
-                thread = await reddit.post_thread(self.subreddit_name, thread_title, body)
-                await ctx.send(thread.url)
-                sql = '''UPDATE umpData SET gameThread=%s WHERE discordID = %s'''
-                db.update_database(sql, (thread.url, ctx.author.id))
-                start_game_command = '-startgame'
-                away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
-                away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
-                if len(away_team) > 0:
-                    start_game_command += ' %s' % away_team[0]
-
-                home_team = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])
-                home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (home_team[0][0],))
-                if len(home_team) > 0:
-                    start_game_command += ' %s' % home_team[0]
-                start_game_command += ' %s' % thread.url
-                await ctx.send('Game thread set. Play ball!')
-                await ctx.send(start_game_command)
+                    await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
+                    await ctx.message.add_reaction('⚠')
+                    await ctx.send('Something went wrong. Please contact Dottie for help.')
             else:
+                await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
+                await ctx.message.add_reaction('⚠')
                 await ctx.send('There appears to be an issue with your lineup. Please fix it before posting the game '
                                'thread.')
 
@@ -499,6 +533,8 @@ class Ump(commands.Cog):
             reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
             if reaction.emoji == '\N{baseball}':
                 await prompt_msg.edit(content='Resulting at bat, please wait sheets API can be slow...')
+                log_result(sheet_id, away_team, home_team)
+
                 if await commit_at_bat(ctx, sheet_id):
                     await ctx.send('Result submitted.')
                 else:
@@ -572,6 +608,7 @@ class Ump(commands.Cog):
                       description='Rolls back the last entry into the game log.')
     @commands.has_role(ump_role)
     async def rollback(self, ctx):
+        await ctx.message.add_reaction(loading_emote)
         config = await get_ump_data(ctx, ctx.author.id)
         if config:
             sheet_id = config[2]
@@ -586,6 +623,7 @@ class Ump(commands.Cog):
                 result_txt += '\nDiff: %s' % game_log[5]
             if len(game_log) >= 7:
                 result_txt += ' > %s' % game_log[6]
+            await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
             rollback_msg = await ctx.send('Clear last result?```%s```React to this message with ⚾ to confirm or 👎 to '
                                           'cancel.' % result_txt)
             await rollback_msg.add_reaction('\N{baseball}')
@@ -597,6 +635,18 @@ class Ump(commands.Cog):
 
             reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
             if reaction.emoji == '\N{baseball}':
+                play_number = sheets.read_sheet(sheet_id, assets.calc_cell['play_number'])
+                if play_number:
+                    play_number = play_number[0][0]
+                    play_number = int(play_number) - 1
+                sql = '''SELECT league, season, session, gameID FROM gameData WHERE sheetID=%s'''
+                game_data = db.fetch_data(sql, (sheet_id,))
+                if game_data:
+                    game_data = game_data[0]
+                    pa_id = get_pa_id(game_data[0], game_data[1], game_data[2], game_data[3], play_number)
+                    sql = '''DELETE FROM PALogs WHERE paID=%s'''
+                    db.update_database(sql, (pa_id,))
+                    await ctx.send('Play removed from database, removing from ump helper sheet...')
                 sheets.update_sheet(sheet_id, 'Game Log!G%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!H%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!I%s' % index, '', lazy=True)
@@ -649,34 +699,43 @@ class Ump(commands.Cog):
     @commands.has_role(ump_role)
     async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
                     ump5: discord.Member = None, ump6: discord.Member = None):
-        await ctx.message.add_reaction('<a:baseball:872894282032365618>')
+        await ctx.message.add_reaction(loading_emote)
         season = read_config(league_config, league.upper(), 'Season')
         session = read_config(league_config, league.upper(), 'Session')
         title = '%s.%s - Ump Helper - %s' % (season, session, ctx.author.display_name)
         ump_list = [ctx.author.id]
-        if ump2:
+        if ump2 and ump2.id != ctx.author.id:
             title += ' %s' % ump2.display_name
             ump_list.append(ump2.id)
-        if ump3:
+        if ump3 and ump3.id != ctx.author.id:
             title += ' %s' % ump3.display_name
             ump_list.append(ump3.id)
-        if ump4:
+        if ump4 and ump4.id != ctx.author.id:
             title += ' %s' % ump4.display_name
             ump_list.append(ump4.id)
-        if ump5:
+        if ump5 and ump5.id != ctx.author.id:
             title += ' %s' % ump5.display_name
             ump_list.append(ump5.id)
-        if ump6:
+        if ump6 and ump6.id != ctx.author.id:
             title += ' %s' % ump6.display_name
             ump_list.append(ump6.id)
         sheet_id = sheets.copy_ump_sheet(read_config(league_config, league.upper(), 'sheet'), title)
         for ump in ump_list:
             sql = '''UPDATE umpData SET sheetID= %s WHERE discordID = %s'''
             db.update_database(sql, (sheet_id, ump))
-        await ctx.message.remove_reaction('<a:baseball:872894282032365618>', ctx.bot.user)
+            sql = '''SELECT playerID from umpData WHERE sheetID=%s'''
+        ump_list_player_ids = ''
+        player_ids = db.fetch_data(sql, (sheet_id,))
+        for player_id in player_ids:
+            ump_list_player_ids += '%s ' % player_id[0]
+        game_id = int(read_config(league_config, league.upper(), 'gameid'))
+        write_config(league_config, league.upper(), 'gameid', str(game_id+1))
+        await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
         await ctx.message.add_reaction('✅')
-        await ctx.send(
-            'I have created a copy of the ump helper sheet for you. Open this link and set the lineups. \nhttps://docs.google.com/spreadsheets/d/%s\n\nWhen you\'re done use .post_thread to complete game setup.' % sheet_id)
+        game_log = (league, season, session, game_id, sheet_id, ump_list_player_ids)
+        sql = '''INSERT INTO gameData (league, season, session, gameID, sheetID, umpires) VALUES (%s, %s, %s, %s, %s, %s)'''
+        db.update_database(sql, game_log)
+        await ctx.send('I have created a copy of the ump helper sheet for you. Open the **Starting Lineups** page, select the two teams from the drop down lists, and input the starting lineups.\nhttps://docs.google.com/spreadsheets/d/%s\n\nWhen you\'re done use .post_thread to complete game setup.' % sheet_id)
 
     @commands.command(brief='Returns ump helper sheet for game',
                       description='Returns a link to the google sheet calculator in the database.')
@@ -801,6 +860,231 @@ def format_text(rows):
     return string
 
 
+def get_pa_id(league, season, session, game_id, play_number):
+    if league == 'mlr':
+        pa_id = '1'
+    elif league == 'milr':
+        pa_id = '2'
+    elif league == 'gib':
+        pa_id = '3'
+    elif league == 'fcb':
+        pa_id = '4'
+    else:
+        pa_id = '9'
+
+    pa_id += '%s%s%s%s' % (str(season).zfill(2), str(session).zfill(2), str(game_id).zfill(3), str(play_number).zfill(3))
+
+    return pa_id
+
+
+def log_result(sheet_id, away_team, home_team):
+    # Fetch data from sheet
+    calc_be = sheets.read_sheet(sheet_id, assets.calc_cell['calc_be'])
+    play_number = sheets.read_sheet(sheet_id, assets.calc_cell['play_number'])
+    league = sheets.read_sheet(sheet_id, assets.calc_cell['league'])
+
+    if league:
+        if league[0][0] == 'TRUE':
+            league = 'milr'
+        else:
+            league = 'mlr'
+
+    # Fetch data from configs
+    season = int(read_config(league_config, league.upper(), 'season'))
+    session = int(read_config(league_config, league.upper(), 'session'))
+
+    # Get game ID from database
+    sql = '''SELECT gameID from gameData where sheetID = %s'''
+    gameID = db.fetch_data(sql, (sheet_id,))
+    if gameID:
+        gameID = gameID[0][0]
+
+    if calc_be:
+        # Parse easy stuff right from the sheet
+        calc_be = calc_be[0]
+        inning = calc_be[1]
+        outs = int(calc_be[2])
+        obc = int(calc_be[3])
+        awayScore = int(calc_be[5])
+        homeScore = int(calc_be[4])
+        pitcherName = calc_be[8]
+        hitterName = calc_be[6]
+        pitch = int(calc_be[7])
+        swing = int(calc_be[9])
+        diff = int(calc_be[11])
+        exactResult = calc_be[78]
+        oldResult = calc_be[77]
+        resultAtNeutral = calc_be[79]
+        resultAllNeutral = calc_be[80]
+        run = calc_be[14]  # TODO
+        if not run:
+            run = None
+
+        # Inning ID
+        inningID = 0
+        sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
+        inning_data = db.fetch_data(sql, (league, season, session, gameID, inning))
+        if inning_data:
+            inningID = inning_data[0][0]
+        else:
+            inningID = read_config(league_config, league.upper(), 'inningid')
+            inningID = int(inningID)
+            write_config(league_config, league.upper(), 'inningid', str(inningID+1))
+
+        # Get Play number for PA ID
+        if play_number:
+            play_number = play_number[0][0]
+            play_number = int(play_number)
+
+        # Generate PA ID
+        paID = get_pa_id(league, season, session, gameID, play_number)
+
+        # Sheet isn't calculating RBIs currently
+        rbi = 0
+        if diff and 'steal' not in calc_be[10].lower() and 'DP' not in calc_be[12].upper():
+            rbi = (int(calc_be[20]) + int(calc_be[19])) - (int(calc_be[5]) + int(calc_be[4]))
+
+        # Fetch player IDs for pitcher and batter
+        sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
+        hitter = db.fetch_data(sql, ('%' + hitterName + '%',))
+        pitcher = db.fetch_data(sql, ('%' + pitcherName + '%',))
+
+        hitterID = None
+        pitcherID = None
+        if hitter:
+            hitterID = hitter[0][0]
+        if pitcher:
+            pitcherID = pitcher[0][0]
+
+        # Pitcher Responsible
+        pr3B = None
+        pr2B = None
+        pr1B = None
+        prAB = None
+        if len(calc_be) > 87:
+            if calc_be[87]:
+                pr3B = calc_be[87]
+        if len(calc_be) > 88:
+            if calc_be[88]:
+                pr2B = calc_be[88]
+        if len(calc_be) > 89:
+            if calc_be[89]:
+                pr1B = calc_be[89]
+        if len(calc_be) > 90:
+            if calc_be[90]:
+                prAB = calc_be[90]
+
+        if pr3B and pr3B != '#REF!':
+            pr3B = db.fetch_data(sql, ('%' + pr3B + '%',))[0][0]
+        else:
+            pr3B = None
+        if pr2B and pr2B != '#REF!':
+            pr2B = db.fetch_data(sql, ('%' + pr2B + '%',))[0][0]
+        else:
+            pr2B = None
+        if pr1B and pr1B != '#REF!':
+            pr1B = db.fetch_data(sql, ('%' + pr1B + '%',))[0][0]
+        else:
+            pr1B = None
+        if prAB and prAB != '#REF!':
+            prAB = db.fetch_data(sql, ('%' + prAB + '%',))[0][0]
+        else:
+            prAB = None
+
+        # Win Probability and also Team Data
+        if 'T' in inning:
+            pitcherTeam = away_team[1]
+            hitterTeam = home_team[1]
+            run_diff_before = int(calc_be[5]) - int(calc_be[4])  # away-home
+            if 'T' in calc_be[16]:  # Inning After Swing
+                run_diff_after = int(calc_be[20]) - int(calc_be[19])  # home-away
+            else:
+                run_diff_after = int(calc_be[19]) - int(calc_be[20])  # away - home
+        else:
+            pitcherTeam = home_team[1]
+            hitterTeam = away_team[1]
+            run_diff_before = int(calc_be[4]) - int(calc_be[5])  # home - away
+            if 'B' in calc_be[16]:  # Inning After Swing
+                run_diff_after = int(calc_be[19]) - int(calc_be[20])  # away-home
+            else:
+                run_diff_after = int(calc_be[20]) - int(calc_be[19])  # home-away
+        if run_diff_before == 0:
+            column_name_before = 'tie'
+        elif run_diff_before <= -10:
+            column_name_before = 'd10'
+        elif run_diff_before >= 10:
+            column_name_before = 'u10'
+        elif -10 < run_diff_before < 0:
+            column_name_before = 'd%s' % str(run_diff_before)[1]
+        elif 0 < run_diff_before < 10:
+            column_name_before = 'u%s' % run_diff_before
+        else:
+            column_name_before = None
+            print('Something went horribly wrong')
+
+        if run_diff_after == 0:
+            column_name_after = 'tie'
+        elif run_diff_after <= -10:
+            column_name_after = 'd10'
+        elif run_diff_after >= 10:
+            column_name_after = 'u10'
+        elif -10 < run_diff_after < 0:
+            column_name_after = 'd%s' % str(run_diff_after)[1]
+        elif 0 < run_diff_after < 10:
+            column_name_after = 'u%s' % run_diff_after
+        else:
+            column_name_after = None
+            print('Something went horribly wrong')
+
+        win_prob_before_key = '%s' % (inning[1])
+        win_prob_after_key = '%s' % (inning[1])
+
+        if 'T' in calc_be[1]:
+            win_prob_before_key += '1'
+        else:
+            win_prob_before_key += '2'
+        if 'T' in calc_be[16]:
+            win_prob_after_key += '1'
+        else:
+            win_prob_after_key += '2'
+        win_prob_before_key += '%s%s' % (calc_be[3], calc_be[2])
+        win_prob_after_key += '%s%s' % (calc_be[18], calc_be[17])
+
+        sql = '''SELECT %s from winProbability ''' % column_name_before
+        sql += '''WHERE gameState=%s'''
+        win_prob_before = db.fetch_data(sql, (int(win_prob_before_key),))[0][0]
+
+        sql = '''SELECT %s from winProbability ''' % column_name_after
+        sql += '''WHERE gameState=%s'''
+        win_prob_after = db.fetch_data(sql, (int(win_prob_after_key),))[0][0]
+
+        if win_prob_before_key[0:2] != win_prob_after_key[0:2]:
+            win_prob_after = 100 - win_prob_after
+
+        batterWPA = ''
+        pitcherWPA = ''
+
+        if win_prob_before and win_prob_after:
+            batterWPA = win_prob_after - win_prob_before
+            wpa = '%.2f' % batterWPA
+            batterWPA = wpa + '%'
+            if batterWPA[0] == '-':
+                pitcherWPA = batterWPA[1:]
+            else:
+                pitcherWPA = '-' + batterWPA
+
+        # Update Game Log with current game state
+        sql = '''UPDATE gameData SET awayScore=%s, homeScore=%s, inning=%s, outs=%s, obc=%s WHERE sheetID=%s'''
+        game_log = (int(calc_be[20]), int(calc_be[19]), calc_be[16], int(calc_be[17]), int(calc_be[18]), sheet_id)
+        db.update_database(sql, game_log)
+
+        pa_log = (paID, league, season, session, gameID, inning, inningID, play_number, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB)
+        sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+        db.update_database(sql, pa_log)
+
+    return
+
+
 def raw_text(rows):
     string = ''
     for row in rows:
@@ -833,3 +1117,11 @@ def result_embed(text, team):
     else:
         embed = discord.Embed(description=text)
     return embed
+
+
+def write_config(filename, section, setting, value):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    ini_file.set(section, setting, value)
+    with open(filename, 'w') as configfile:
+        ini_file.write(configfile)

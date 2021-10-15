@@ -22,7 +22,9 @@ def fetch_data(sql_query, data):
     try:
         cursor = get_cursor(connection)
         cursor.execute(sql_query, data)
-        return cursor.fetchall()
+        data = cursor.fetchall()
+        connection.commit()
+        return data
     except mysql.connector.Error as e:
         print(e)
 

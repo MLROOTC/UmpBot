@@ -146,3 +146,4 @@ src/MLRdata.db
 .idea/UmpBot.iml
 .idea/vcs.xml
 .idea/workspace.xml
+src/league.ini
