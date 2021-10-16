@@ -909,9 +909,21 @@ def log_result(sheet_id, away_team, home_team):
         homeScore = int(calc_be[4])
         pitcherName = calc_be[8]
         hitterName = calc_be[6]
-        pitch = int(calc_be[7])
-        swing = int(calc_be[9])
-        diff = int(calc_be[11])
+        pitch = calc_be[7]
+        swing = calc_be[9]
+        diff = calc_be[11]
+        if pitch == ' ':
+            pitch = None
+        else:
+            pitch = int(pitch)
+        if swing== ' ':
+            swing = None
+        else:
+            swing = int(swing)
+        if diff == ' ' or diff == 'x':
+            diff = None
+        else:
+            diff = int(diff)
         exactResult = calc_be[78]
         oldResult = calc_be[77]
         resultAtNeutral = calc_be[79]
