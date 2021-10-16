@@ -18,6 +18,8 @@ ump_admin = int(config['Discord']['ump_admin_role'])
 league_ops_role = int(config['Discord']['league_ops_role'])
 error_log = Webhook(config['Channels']['error_log_webhook'])
 league_config = 'league.ini'
+config_ini = 'config.ini'
+loading_emote = '<a:baseball:872894282032365618>'
 
 
 class Admin(commands.Cog):
@@ -149,6 +151,8 @@ class Admin(commands.Cog):
     @commands.command(brief='Gets discord IDs for players')
     @commands.has_role(ump_admin)
     async def get_discord_ids(self, ctx):
+        await ctx.message.add_reaction(loading_emote)
+
         for guild in self.bot.guilds:
             for member in guild.members:
                 user = db.fetch_data('''SELECT discordName, discordID FROM playerData WHERE discordName=%s''', (str(member),))
@@ -198,6 +202,71 @@ class Admin(commands.Cog):
     async def set_session(self, ctx, league, season):
         write_config(league_config, league.upper(), 'session', season)
         await ctx.send('%s session set to %s.' % (league, read_config(league_config, league.upper(), 'session')))
+
+    @commands.command(brief='Syncs the database to the backend sheet')
+    @commands.has_role(league_ops_role)
+    async def sync_database(self, ctx):
+        await ctx.message.add_reaction(loading_emote)
+        # Update Discord Username In the Backend Sheet based on the Discord ID
+        sheet_id = read_config(config_ini, 'URLs', 'backend_sheet_id')
+        rows = sheets.read_sheet(sheet_id, 'Player List Input')
+        for i in range(len(rows)):
+            row = rows[i]
+            if row:
+                if row[0] != 'Player ID':
+                    discord_id = row[12]
+                    if discord_id:
+                        user = ctx.bot.get_user(int(discord_id))
+                        if user:
+                            discord_name = '%s#%s' % (user.name, user.discriminator)
+                            if discord_name != row[11]:
+                                sheets.update_sheet(sheet_id, 'Player List Input!L%s' % (i+1), discord_name)
+                                error_log.send('Updated discord name in Player List Input for `%s` to `%s`' % (row, discord_name))
+
+        # Sync playerData with backend player list
+        rows = sheets.read_sheet(sheet_id, 'Player List')
+        for row in rows:
+            if row[0] != 'Player ID':
+                player_id = int(row[0])
+                player_name = row[1]
+                team = row[2]
+                batting_type = row[3]
+                pitching_type = row[4]
+                pitching_bonus = row[5]
+                hand = row[6]
+                pos1 = row[7]
+                pos2 = row[8]
+                pos3 = row[9]
+                reddit_name = row[10]
+                discord_name = row[11]
+                status = int(row[13])
+                player_in_sheet = (player_name, team, batting_type, pitching_type, pitching_bonus, hand, pos1, pos2, pos3, reddit_name, discord_name, status, player_id)
+
+                sql = '''SELECT playerName, Team, batType, pitchType, pitchBonus, hand, priPos, secPos, tertPos, redditName, discordName, Status, playerID FROM playerData WHERE playerID = %s'''
+                player_in_db = db.fetch_data(sql, (player_id,))
+                if player_in_db:
+                    player_in_db = player_in_db[0]
+                else:
+                    sql = '''INSERT INTO playerData (playerName, Team, batType, pitchType, pitchBonus, hand, priPos, secPos, tertPos, redditName, discordName, Status, playerID) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+                    db.update_database(sql, player_in_sheet)
+                    error_log.send('Added new player: `%s`' % player_in_sheet)
+                    continue
+                if player_in_db != player_in_sheet:
+                    sql = '''UPDATE playerData SET playerName=%s, Team=%s, batType=%s, pitchType=%s, pitchBonus=%s, hand=%s, priPos=%s, secPos=%s, tertPos=%s, redditName=%s, discordName=%s, Status=%s WHERE playerID=%s'''
+                    db.update_database(sql, player_in_sheet)
+                    error_log.send('Updated existing player from `%s` to `%s`' % (player_in_db, player_in_sheet))
+        await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def test(self, ctx):
+        sql = '''ALTER DATABASE `MLR-Dev` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;'''
+        sql2 = '''ALTER TABLE playerData CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'''
+        sql3 = '''ALTER TABLE playerData MODIFY discordName TEXT CHARSET utf8mb4;'''
+        db.update_database(sql, ())
+        db.update_database(sql2, ())
+        db.update_database(sql3, ())
+        return
 
 
 def setup(bot):
