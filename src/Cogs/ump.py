@@ -1048,8 +1048,8 @@ def log_result(sheet_id, away_team, home_team):
             column_name_after = None
             print('Something went horribly wrong')
 
-        win_prob_before_key = '%s' % (inning[1])
-        win_prob_after_key = '%s' % (inning[1])
+        win_prob_before_key = '%s' % (calc_be[1][1])
+        win_prob_after_key = '%s' % (calc_be[16][1])
 
         if 'T' in calc_be[1]:
             win_prob_before_key += '1'
