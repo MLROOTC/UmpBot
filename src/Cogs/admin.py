@@ -258,16 +258,6 @@ class Admin(commands.Cog):
         await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
         await ctx.send('Done.')
 
-    @commands.command()
-    async def test(self, ctx):
-        sql = '''ALTER DATABASE `MLR-Dev` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;'''
-        sql2 = '''ALTER TABLE playerData CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'''
-        sql3 = '''ALTER TABLE playerData MODIFY discordName TEXT CHARSET utf8mb4;'''
-        db.update_database(sql, ())
-        db.update_database(sql2, ())
-        db.update_database(sql3, ())
-        return
-
 
 def setup(bot):
     bot.add_cog(Admin(bot))
