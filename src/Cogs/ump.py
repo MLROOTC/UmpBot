@@ -383,13 +383,16 @@ class Ump(commands.Cog):
                     thread_title = ''
                     if milr == 'TRUE':
                         thread_title += '[MiLR'
+                        league = 'MILR'
                     elif milr == 'FALSE':
                         thread_title += '[MLR'
+                        league = 'MLR'
                     else:
                         thread_title += '[FCB'
-                    thread_title += ' %s.%s%s Game Thread] %s at %s' % (season_session[0], season_session[1],
-                                                                        season_session[2], away_team.title(),
-                                                                        home_team.title())
+                        league = 'FCB'
+                    season = read_config(league_config, league, 'season')
+                    session = read_config(league_config, league, 'session')
+                    thread_title += ' %s.%s Game Thread] %s at %s' % (season, session, away_team.title(), home_team.title())
                     if custom_text:
                         thread_title += ' - %s' % custom_text
                     body = raw_text(box_score)
