@@ -371,7 +371,6 @@ class Ump(commands.Cog):
                 if lineup_check[0] == 'That\'s a good lineup!' and lineup_check[3] == 'That\'s a good lineup!':
                     game_data = sheets.read_sheet(sheet_id, assets.calc_cell['game_data'])[0]
                     box_score = sheets.read_sheet(sheet_id, assets.calc_cell['boxscore'])
-                    season_session = sheets.read_sheet(self.master_ump_sheet, assets.calc_cell['season_session'])[0][0]
                     away_team = game_data[0]
                     home_team = game_data[3]
                     away_team = away_team.title()
@@ -395,6 +394,7 @@ class Ump(commands.Cog):
                     thread_title += ' %s.%s Game Thread] %s at %s' % (season, session, away_team.title(), home_team.title())
                     if custom_text:
                         thread_title += ' - %s' % custom_text
+                    sheets.rename_sheet(sheet_id, '%s %s.%s - %s @ %s' % (league, season, session, away_team, home_team))
                     body = raw_text(box_score)
                     thread = await reddit.post_thread(self.subreddit_name, thread_title, body)
                     await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
