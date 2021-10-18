@@ -1,12 +1,15 @@
+import datetime
 import random
 from dhooks import Webhook
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
 import configparser
 from discord.ext.commands import CommandNotFound, MissingRole, MissingRequiredArgument, CommandInvokeError
 from googleapiclient.errors import HttpError
 from asyncio import TimeoutError
+
+from src.Cogs import player
 
 intents = discord.Intents.default()
 intents.members = True
@@ -17,8 +20,16 @@ token = config['Discord']['token']
 prefix = config['Discord']['prefix']
 ump_admin = int(config['Discord']['ump_admin_role'])
 error_log = Webhook(config['Channels']['error_log_webhook'])
+config_ini = 'config.ini'
+league_ini = 'league.ini'
 
 bot = commands.Bot(command_prefix=prefix, description='Dottie Rulez', case_insensitive=True, intents=intents)
+
+
+def read_config(filename, section, setting):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    return ini_file[section][setting]
 
 
 @bot.event
@@ -26,6 +37,7 @@ async def on_ready():
     for filename in os.listdir('Cogs'):
         if filename.endswith('.py'):
             bot.load_extension('Cogs.%s' % filename[:-3])
+    scoreboard.start()
 
 
 @bot.command(brief='Otter plz',
@@ -42,6 +54,26 @@ async def reload(ctx, extension):
     bot.unload_extension('Cogs.%s' % extension)
     bot.load_extension('Cogs.%s' % extension)
     await ctx.message.add_reaction('✅')
+
+
+@tasks.loop(seconds=60)
+async def scoreboard():
+    embed = discord.Embed(title='League Scoreboard', color=discord.Colour.red())
+    embed.set_thumbnail(url='https://media.discordapp.net/attachments/583735640177246222/892826404520071238/baseball_snoo.png')
+    channel_id = int(read_config(config_ini, 'Channels', 'scoreboard_channel'))
+    message_id = int(read_config(config_ini, 'Channels', 'scoreboard_msg'))
+    mlr_season = int(read_config(league_ini, 'MLR', 'season'))
+    mlr_session = int(read_config(league_ini, 'MLR', 'session'))
+    milr_season = int(read_config(league_ini, 'MILR', 'season'))
+    milr_session = int(read_config(league_ini, 'MILR', 'session'))
+    scoreboard_channel = bot.get_channel(channel_id)
+    scoreboard_msg = await scoreboard_channel.fetch_message(message_id)
+    mlr_scoreboard = player.scoreboard('mlr', mlr_season, mlr_session)
+    milr_scoreboard = player.scoreboard('milr', milr_season, milr_session)
+    embed.add_field(name='MLR Scoreboard', value=mlr_scoreboard)
+    embed.add_field(name='MiLR Scoreboard', value=milr_scoreboard)
+    embed.set_footer(text='Last updated %s' % datetime.datetime.now())
+    await scoreboard_msg.edit(content=None, embed=embed)
 
 
 @bot.event

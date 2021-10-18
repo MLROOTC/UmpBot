@@ -864,3 +864,37 @@ def team_embed(team_abbr):
         embed.add_field(name='Park Factors', value=park_factors, inline=False)
 
     return embed
+
+
+def scoreboard(league, season, session):
+    sql = '''SELECT awayTeam, awayScore, homeTeam, homeScore, inning, outs, obc, complete FROM gameData WHERE league=%s AND season=%s AND session=%s ORDER BY awayTeam'''
+    games = db.fetch_data(sql, (league, season, session))
+    if games:
+        scoreboard_txt = ''
+        for game in games:
+            away_team, away_score, home_team, home_score, inning, outs, obc, complete = game
+            if away_team is None:
+                continue
+            b1 = '○'
+            b2 = '○'
+            b3 = '○'
+            if obc in [1, 4, 5, 7]:
+                b1 = '●'
+            if obc in [2, 4, 6, 7]:
+                b2 = '●'
+            if obc in [3, 5, 6, 7]:
+                b3 = '●'
+            if 'T' in inning:
+                inning = '▲' + inning[1]
+            else:
+                inning = '▼' + inning[1]
+            if complete:
+                scoreboard_txt += '```%3s %2s           Final\n' % (away_team, away_score)
+                scoreboard_txt += '%3s %2s                \r\n\r\n```' % (home_team, home_score)
+            else:
+                scoreboard_txt += '```%3s %2s     %s       %s\n' % (away_team, away_score, b2, inning)
+                scoreboard_txt += '%3s %2s   %s   %s   %s out\r\n\r\n```' % (home_team, home_score, b3, b1, outs)
+            scoreboard_txt += ''
+        scoreboard_txt += ''
+        return scoreboard_txt
+    return '--'
