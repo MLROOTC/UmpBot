@@ -1,5 +1,4 @@
 import configparser
-
 import discord
 import datetime
 import src.reddit_interface as reddit
@@ -698,11 +697,12 @@ class Ump(commands.Cog):
                     break
 
     @commands.command(brief='Game setup',
-                      description='')
+                      description='Creates a copy of the most recent version of the ump helper sheet and logs the game in the database. Also sets the sheet ID for all umps that are tagged.')
     @commands.has_role(ump_role)
     async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
                     ump5: discord.Member = None, ump6: discord.Member = None):
         await ctx.message.add_reaction(loading_emote)
+        league = league.upper()
         season = read_config(league_config, league.upper(), 'Season')
         session = read_config(league_config, league.upper(), 'Session')
         title = '%s.%s - Ump Helper - %s' % (season, session, ctx.author.display_name)
