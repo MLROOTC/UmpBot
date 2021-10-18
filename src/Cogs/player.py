@@ -790,8 +790,10 @@ def team_embed(team_abbr):
     if team[5] == 'mlr':
         record = sheets.read_sheet(sheet_id, '%s!D4' % team_abbr)
         if record:
-            if not record[0][0] == '#N/A':
+            if not (record[0][0] == '#N/A' or record[0][0] == '#VALUE!'):
                 embed.add_field(name='Record', value=record[0][0][7:])
+            else:
+                embed.add_field(name='Record', value='--')
         appointments = sheets.read_sheet(sheet_id, assets.calc_cell['mlr_appointments'])
         for team_data in appointments:
             if team_data[0] == team_abbr:
