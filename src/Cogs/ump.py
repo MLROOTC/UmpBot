@@ -1,5 +1,4 @@
 import configparser
-
 import discord
 import datetime
 import src.reddit_interface as reddit
@@ -371,7 +370,6 @@ class Ump(commands.Cog):
                 if lineup_check[0] == 'That\'s a good lineup!' and lineup_check[3] == 'That\'s a good lineup!':
                     game_data = sheets.read_sheet(sheet_id, assets.calc_cell['game_data'])[0]
                     box_score = sheets.read_sheet(sheet_id, assets.calc_cell['boxscore'])
-                    season_session = sheets.read_sheet(self.master_ump_sheet, assets.calc_cell['season_session'])[0][0]
                     away_team = game_data[0]
                     home_team = game_data[3]
                     away_team = away_team.title()
@@ -383,15 +381,19 @@ class Ump(commands.Cog):
                     thread_title = ''
                     if milr == 'TRUE':
                         thread_title += '[MiLR'
+                        league = 'MILR'
                     elif milr == 'FALSE':
                         thread_title += '[MLR'
+                        league = 'MLR'
                     else:
                         thread_title += '[FCB'
-                    thread_title += ' %s.%s%s Game Thread] %s at %s' % (season_session[0], season_session[1],
-                                                                        season_session[2], away_team.title(),
-                                                                        home_team.title())
+                        league = 'FCB'
+                    season = read_config(league_config, league, 'season')
+                    session = read_config(league_config, league, 'session')
+                    thread_title += ' %s.%s Game Thread] %s at %s' % (season, session, away_team.title(), home_team.title())
                     if custom_text:
                         thread_title += ' - %s' % custom_text
+                    sheets.rename_sheet(sheet_id, '%s %s.%s - %s @ %s' % (league, season, session, away_team, home_team))
                     body = raw_text(box_score)
                     thread = await reddit.post_thread(self.subreddit_name, thread_title, body)
                     await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
@@ -695,11 +697,12 @@ class Ump(commands.Cog):
                     break
 
     @commands.command(brief='Game setup',
-                      description='')
+                      description='Creates a copy of the most recent version of the ump helper sheet and logs the game in the database. Also sets the sheet ID for all umps that are tagged.')
     @commands.has_role(ump_role)
     async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
                     ump5: discord.Member = None, ump6: discord.Member = None):
         await ctx.message.add_reaction(loading_emote)
+        league = league.upper()
         season = read_config(league_config, league.upper(), 'Season')
         session = read_config(league_config, league.upper(), 'Session')
         title = '%s.%s - Ump Helper - %s' % (season, session, ctx.author.display_name)
