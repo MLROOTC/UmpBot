@@ -589,24 +589,17 @@ async def get_player(ctx, name):
 
 
 def player_embed(player):
-    player_id = player[0]
-    player_name = player[1]
-    team = player[2]
-    batting_type = player[3]
-    pitching_type = player[4]
-    hand_bonus = player[5]
-    hand = player[6]
-    primary_position = player[7]
-    secondary_position = player[8]
-    tertiary_position = player[9]
-    reddit_name = player[10]
-    discord_name = player[11]
+    player_id, player_name, team, batting_type, pitching_type, hand_bonus, hand, pos1, pos2, pos3, reddit_name, discord_name, discord_id, format_no, status = player
+    if not discord_name:
+        discord_name = '--'
+    if discord_id:
+        discord_name = '<@%s>' % discord_id
 
-    positions = primary_position
-    if secondary_position:
-        positions += '/' + secondary_position
-    if tertiary_position:
-        positions += '/' + tertiary_position
+    positions = pos1
+    if pos2:
+        positions += '/' + pos2
+    if pos3:
+        positions += '/' + pos3
 
     if team:
         team = db.fetch_data('SELECT * FROM teamData WHERE abb=%s', (team,))
@@ -627,7 +620,7 @@ def player_embed(player):
         pitching = '%s (%s)' % (assets.pitching_types[pitching_type], assets.hand_bonus[hand_bonus])
         embed.add_field(name='Pitching Type', value=pitching, inline=False)
     embed.add_field(name='Discord', value=discord_name, inline=True)
-    embed.add_field(name='Reddit', value=reddit_name, inline=True)
+    embed.add_field(name='Reddit', value='[%s](https://www.reddit.com/%s)' % (reddit_name, reddit_name), inline=True)
     embed.add_field(name='Player ID', value=player_id, inline=True)
     return embed
 
