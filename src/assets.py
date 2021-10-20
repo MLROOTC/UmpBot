@@ -28,6 +28,7 @@ calc_cell = {
     'event': 'Calculator!F6',
     'game_complete': 'Calculator!G12',
     'game_data': 'Starting Lineups!B2:H2',
+    'game_data_import': 'Game Data Import!A1:I1',
     'game_end': 'Calculator!I5',
     'game_log': 'Game Log',
     'game_state': 'Calculator!B3:F3',

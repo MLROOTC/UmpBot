@@ -12,6 +12,7 @@ config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 ump_role = int(config_ini['Discord']['ump_role'])
 league_config = 'league.ini'
+bot_config = 'config.ini'
 loading_emote = '<a:baseball:872894282032365618>'
 
 
@@ -415,6 +416,11 @@ class Ump(commands.Cog):
                     sql = '''UPDATE gameData SET threadURL=%s, awayTeam=%s, homeTeam=%s WHERE sheetID=%s'''
                     update_game_log = (thread.url, away_team[0][0], home_team[0][0], sheet_id)
                     db.update_database(sql, update_game_log)
+                    sql = '''SELECT league, season, session, awayTeam, homeTeam, gameID, sheetID, threadURL, umpires FROM gameData WHERE sheetID=%s'''
+                    sheet_export = db.fetch_data(sql, (sheet_id,))
+                    if sheet_export:
+                        sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'), assets.calc_cell['game_data_import'], sheet_export[0])
+                    print(sheet_export)
                     await ctx.send('Game thread set. Play ball!')
                     await ctx.send(start_game_command)
                 else:
