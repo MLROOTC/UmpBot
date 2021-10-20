@@ -28,6 +28,11 @@ def get_discord_ids(thread_url):
     return db.fetch_data(sql, (thread_url,))
 
 
+def get_ump_list(thread_url):
+    sql = '''SELECT umpires FROM gameData WHERE threadURL=%s'''
+    return db.fetch_data(sql, (thread_url,))
+
+
 def check_swing():
     for comment in reddit.subreddit(subreddit_name).stream.comments(skip_existing=True):
         regexp = bool(re.search('([^\d]|^)\d{1,4}([^\d]|$)', comment.body))
@@ -39,17 +44,30 @@ def check_swing():
             parent_comment_text = parent_comment_text.lower()
             if ((author in parent_comment_text) or ('steal'.lower() in comment.body.lower())) and regexp:
                 swing_url = '%s%s' % (base_url, comment.permalink)
-                swing_alert = '/u/%s has swung!' % comment.author
                 game_thread = reddit.submission(comment.submission)
-                game_thread_url = "%s%s" % (base_url, game_thread.permalink)
-                umps = get_discord_ids(game_thread_url)
-                if umps:
-                    for ump in umps:
-                        swing_alert += ' <@%s>' % ump[0]
-                swing_alert += ' [link](<%s>)' % swing_url
-                if len(comment.body) <= 100:
-                    swing_alert += '```%s```' % comment.body
-                hook.send(swing_alert)
+                break_flag = False
+                if 'steal' in comment.body.lower():
+                    umpires = get_ump_list('%s%s' % (base_url, game_thread.permalink))
+                    for umpire in umpires:
+                        ump_list = umpire[0].split()
+                        for ump in ump_list:
+                            sql = '''SELECT redditName FROM playerData WHERE playerID=%s'''
+                            umpire_reddit = db.fetch_data(sql, (ump,))
+                            if umpire_reddit:
+                                umpire_reddit = umpire_reddit[0][0][3:]
+                            if umpire_reddit == comment.author:
+                                break_flag = True
+                if not break_flag:
+                    swing_alert = '/u/%s has swung!' % comment.author
+                    game_thread_url = "%s%s" % (base_url, game_thread.permalink)
+                    umps = get_discord_ids(game_thread_url)
+                    if umps:
+                        for ump in umps:
+                            swing_alert += ' <@%s>' % ump[0]
+                    swing_alert += ' [link](<%s?context=1000>)' % swing_url
+                    if len(comment.body) <= 100:
+                        swing_alert += '```%s```' % comment.body
+                    hook.send(swing_alert)
 
 
 while True:
