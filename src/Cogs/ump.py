@@ -172,6 +172,7 @@ class Ump(commands.Cog):
                 awards_reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
                 if awards_reaction.emoji == '👍':
                     await awards_msg.edit(content='Closing out game, please wait...')
+                    starting_pitchers = sheets.read_sheet(sheet_id, assets.calc_cell['starting_pitchers'])
                     sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
                     winning_pitcher_id = db.fetch_data(sql, ('%' + winning_pitcher + '%',))
                     losing_pitcher_id = db.fetch_data(sql, ('%' + losing_pitcher + '%',))
@@ -188,9 +189,23 @@ class Ump(commands.Cog):
                         save_id = save_id[0][0]
                     if player_of_game_id:
                         player_of_game_id = player_of_game_id[0][0]
+                    if starting_pitchers:
+                        away_pitcher_name = starting_pitchers[0][0]
+                        home_pitcher_name = starting_pitchers[0][3]
+                        away_starting_pitcher = db.fetch_data(sql, ('%' + away_pitcher_name + '%',))[0][0]
+                        home_starting_pitcher = db.fetch_data(sql, ('%' + home_pitcher_name + '%',))[0][0]
+                    else:
+                        away_starting_pitcher = None
+                        home_starting_pitcher = None
+
                     sql = '''UPDATE gameData SET complete=%s, winningPitcher=%s, losingPitcher=%s, save=%s, potg=%s WHERE sheetID=%s'''
                     update_game_log = (1, winning_pitcher_id, losing_pitcher_id, save_id, player_of_game_id, sheet_id)
                     db.update_database(sql, update_game_log)
+
+                    sql = '''SELECT session, homeTeam, awayTeam FROM gameData WHERE sheetID=%s'''
+                    session, home_team, away_team = db.fetch_data(sql, (sheet_id,))[0]
+                    game_awards = (session, home_team, away_team, player_of_game_id, winning_pitcher_id, losing_pitcher_id, save_id, home_starting_pitcher, away_starting_pitcher)
+                    sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'),assets.calc_cell['game_awards_input'], game_awards)
 
                     away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
                     away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
@@ -420,7 +435,6 @@ class Ump(commands.Cog):
                     sheet_export = db.fetch_data(sql, (sheet_id,))
                     if sheet_export:
                         sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'), assets.calc_cell['game_data_import'], sheet_export[0])
-                    print(sheet_export)
                     await ctx.send('Game thread set. Play ball!')
                     await ctx.send(start_game_command)
                 else:
