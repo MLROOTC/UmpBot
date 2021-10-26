@@ -172,6 +172,59 @@ class Ump(commands.Cog):
                 awards_reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
                 if awards_reaction.emoji == '👍':
                     await awards_msg.edit(content='Closing out game, please wait...')
+                    sql = '''SELECT league, season, session, gameID, awayTeam, homeTeam FROM gameData WHERE sheetID=%s'''
+                    game_data = db.fetch_data(sql, (sheet_id,))
+                    if game_data:
+                        league, season, session, gameID, away_team, home_team = game_data[0]
+                        game_log = sheets.read_sheet(sheet_id, assets.calc_cell['game_log'])
+                        for i in range(len(game_log)):
+                            pa = game_log[i]
+                            if pa[0] != 'Before Swing' and pa[0] != 'IP Outs' and pa[6] != '':
+                                print(pa)
+                                inning = pa[1]
+                                playNumber = i - 1
+                                outs = int(pa[2])
+                                obc = int(pa[3])
+                                awayScore = int(pa[5])
+                                homeScore = int(pa[4])
+                                pitcherName = pa[8]
+                                hitterName = pa[6]
+                                pitch = pa[9]
+                                swing = pa[7]
+                                diff = pa[11]
+                                exactResult = pa[88]
+                                resultAtNeutral = pa[89]
+                                resultAllNeutral = pa[90]
+                                rbi = int(pa[13])
+                                run = int(pa[14])
+                                pr3B = None
+                                pr2B = None
+                                pr1B = None
+                                prAB = None
+                                if len(pa) >= 98:
+                                    pr3B = pa[97]
+                                if len(pa) >= 99:
+                                    pr2B = pa[98]
+                                if len(pa) >= 100:
+                                    pr1B = pa[99]
+                                if len(pa) >= 101:
+                                    prAB = pa[100]
+                                inning_after = pa[16]
+                                obc_after = int(pa[18])
+                                outs_after = int(pa[17])
+                                away_score_after = int(pa[20])
+                                home_score_after = int(pa[19])
+                                pa_id = get_pa_id(league, season, session, gameID, playNumber)
+                                sql = '''SELECT * FROM PALogs WHERE paID=%s'''
+                                pa_in_db = db.fetch_data(sql, (pa_id,))
+                                pa_in_sheet = format_pa_log(league, season, session, gameID, inning, playNumber, outs, obc, awayScore, homeScore, away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult, exactResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB, inning_after, obc_after, outs_after, away_score_after, home_score_after)
+                                if not pa_in_db:
+                                    sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+                                else:
+                                    pa_in_db = pa_in_db[0]
+                                    if pa_in_db != pa_in_sheet:
+                                        sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
+                                        db.update_database(sql, (pa_in_sheet + (pa_id,)))
                     starting_pitchers = sheets.read_sheet(sheet_id, assets.calc_cell['starting_pitchers'])
                     sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
                     winning_pitcher_id = db.fetch_data(sql, ('%' + winning_pitcher + '%',))
@@ -538,9 +591,7 @@ class Ump(commands.Cog):
             before_outs = gamestate_before[2]
             before_obc_string = gamestate_before[4]
 
-            check_text = '%s batting against %s \n%s - %s | %s\n\n%s' % (batter, pitcher, before_inning,
-                                                                                before_outs, before_obc_string,
-                                                                                result_raw)
+            check_text = '%s batting against %s \n%s - %s | %s\n\n%s' % (batter, pitcher, before_inning, before_outs, before_obc_string, result_raw)
 
             result_msg = await ctx.send('```%s```' % check_text)
             await result_msg.add_reaction('\N{baseball}')
@@ -555,7 +606,7 @@ class Ump(commands.Cog):
             reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
             if reaction.emoji == '\N{baseball}':
                 await prompt_msg.edit(content='Resulting at bat, please wait sheets API can be slow...')
-                log_result(sheet_id, away_team, home_team)
+                log_result(sheet_id, away_team[1], home_team[1])
 
                 if await commit_at_bat(ctx, sheet_id):
                     await ctx.send('Result submitted.')
@@ -675,7 +726,7 @@ class Ump(commands.Cog):
                 sheets.update_sheet(sheet_id, 'Game Log!J%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!K%s' % index, '', lazy=True)
                 check_game_log = sheets.read_sheet(sheet_id, assets.calc_cell['game_log'])
-                if len(check_game_log[-1]) == 6:
+                if check_game_log[-1][6] == '':
                     await rollback_msg.add_reaction('✅')
                 else:
                     await ctx.send('Something went wrong, please check the sheet for errors.')
@@ -719,8 +770,7 @@ class Ump(commands.Cog):
     @commands.command(brief='Game setup',
                       description='Creates a copy of the most recent version of the ump helper sheet and logs the game in the database. Also sets the sheet ID for all umps that are tagged.')
     @commands.has_role(ump_role)
-    async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None,
-                    ump5: discord.Member = None, ump6: discord.Member = None):
+    async def setup(self, ctx, league, ump2: discord.Member = None, ump3: discord.Member = None, ump4: discord.Member = None, ump5: discord.Member = None, ump6: discord.Member = None):
         await ctx.message.add_reaction(loading_emote)
         league = league.upper()
         season = read_config(league_config, league.upper(), 'Season')
@@ -752,7 +802,7 @@ class Ump(commands.Cog):
         for player_id in player_ids:
             ump_list_player_ids += '%s ' % player_id[0]
         game_id = int(read_config(league_config, league.upper(), 'gameid'))
-        write_config(league_config, league.upper(), 'gameid', str(game_id+1))
+        write_config(league_config, league.upper(), 'gameid', str(game_id + 1))
         await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
         await ctx.message.add_reaction('✅')
         game_log = (league, season, session, game_id, sheet_id, ump_list_player_ids)
@@ -884,20 +934,20 @@ def format_text(rows):
 
 
 def get_pa_id(league, season, session, game_id, play_number):
-    if league == 'mlr':
+    if league.lower() == 'mlr':
         pa_id = '1'
-    elif league == 'milr':
+    elif league.lower() == 'milr':
         pa_id = '2'
-    elif league == 'gib':
+    elif league.lower() == 'gib':
         pa_id = '3'
-    elif league == 'fcb':
+    elif league.lower() == 'fcb':
         pa_id = '4'
     else:
         pa_id = '9'
 
     pa_id += '%s%s%s%s' % (str(season).zfill(2), str(session).zfill(2), str(game_id).zfill(3), str(play_number).zfill(3))
 
-    return pa_id
+    return int(pa_id)
 
 
 def log_result(sheet_id, away_team, home_team):
@@ -905,6 +955,10 @@ def log_result(sheet_id, away_team, home_team):
     calc_be = sheets.read_sheet(sheet_id, assets.calc_cell['calc_be'])
     play_number = sheets.read_sheet(sheet_id, assets.calc_cell['play_number'])
     league = sheets.read_sheet(sheet_id, assets.calc_cell['league'])
+
+    if play_number:
+        play_number = play_number[0][0]
+        play_number = int(play_number)
 
     if league:
         if league[0][0] == 'TRUE':
@@ -935,63 +989,13 @@ def log_result(sheet_id, away_team, home_team):
         pitch = calc_be[7]
         swing = calc_be[9]
         diff = calc_be[11]
-        if pitch == ' ':
-            pitch = None
-        else:
-            pitch = int(pitch)
-        if swing== ' ':
-            swing = None
-        else:
-            swing = int(swing)
-        if diff == ' ' or diff == 'x':
-            diff = None
-        else:
-            diff = int(diff)
         exactResult = calc_be[78]
         oldResult = calc_be[77]
         resultAtNeutral = calc_be[79]
         resultAllNeutral = calc_be[80]
-        run = calc_be[14]  # TODO
+        run = calc_be[14]
         if not run:
             run = None
-
-        # Inning ID
-        inningID = 0
-        sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
-        inning_data = db.fetch_data(sql, (league, season, session, gameID, inning))
-        if inning_data:
-            inningID = inning_data[0][0]
-        else:
-            inningID = read_config(league_config, league.upper(), 'inningid')
-            inningID = int(inningID)
-            write_config(league_config, league.upper(), 'inningid', str(inningID+1))
-
-        # Get Play number for PA ID
-        if play_number:
-            play_number = play_number[0][0]
-            play_number = int(play_number)
-
-        # Generate PA ID
-        paID = get_pa_id(league, season, session, gameID, play_number)
-
-        # Sheet isn't calculating RBIs currently
-        rbi = 0
-        if diff and 'steal' not in calc_be[10].lower() and 'DP' not in calc_be[12].upper():
-            rbi = (int(calc_be[20]) + int(calc_be[19])) - (int(calc_be[5]) + int(calc_be[4]))
-
-        # Fetch player IDs for pitcher and batter
-        sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
-        hitter = db.fetch_data(sql, ('%' + hitterName + '%',))
-        pitcher = db.fetch_data(sql, ('%' + pitcherName + '%',))
-
-        hitterID = None
-        pitcherID = None
-        if hitter:
-            hitterID = hitter[0][0]
-        if pitcher:
-            pitcherID = pitcher[0][0]
-
-        # Pitcher Responsible
         pr3B = None
         pr2B = None
         pr1B = None
@@ -1009,115 +1013,184 @@ def log_result(sheet_id, away_team, home_team):
             if calc_be[90]:
                 prAB = calc_be[90]
 
-        if pr3B and pr3B != '#REF!':
-            pr3B = db.fetch_data(sql, ('%' + pr3B + '%',))[0][0]
-        else:
-            pr3B = None
-        if pr2B and pr2B != '#REF!':
-            pr2B = db.fetch_data(sql, ('%' + pr2B + '%',))[0][0]
-        else:
-            pr2B = None
-        if pr1B and pr1B != '#REF!':
-            pr1B = db.fetch_data(sql, ('%' + pr1B + '%',))[0][0]
-        else:
-            pr1B = None
-        if prAB and prAB != '#REF!':
-            prAB = db.fetch_data(sql, ('%' + prAB + '%',))[0][0]
-        else:
-            prAB = None
-
-        # Win Probability and also Team Data
-        if 'T' in inning:
-            pitcherTeam = away_team[1]
-            hitterTeam = home_team[1]
-            run_diff_before = int(calc_be[5]) - int(calc_be[4])  # away-home
-            if 'T' in calc_be[16]:  # Inning After Swing
-                run_diff_after = int(calc_be[20]) - int(calc_be[19])  # home-away
-            else:
-                run_diff_after = int(calc_be[19]) - int(calc_be[20])  # away - home
-        else:
-            pitcherTeam = home_team[1]
-            hitterTeam = away_team[1]
-            run_diff_before = int(calc_be[4]) - int(calc_be[5])  # home - away
-            if 'B' in calc_be[16]:  # Inning After Swing
-                run_diff_after = int(calc_be[19]) - int(calc_be[20])  # away-home
-            else:
-                run_diff_after = int(calc_be[20]) - int(calc_be[19])  # home-away
-        if run_diff_before == 0:
-            column_name_before = 'tie'
-        elif run_diff_before <= -10:
-            column_name_before = 'd10'
-        elif run_diff_before >= 10:
-            column_name_before = 'u10'
-        elif -10 < run_diff_before < 0:
-            column_name_before = 'd%s' % str(run_diff_before)[1]
-        elif 0 < run_diff_before < 10:
-            column_name_before = 'u%s' % run_diff_before
-        else:
-            column_name_before = None
-            print('Something went horribly wrong')
-
-        if run_diff_after == 0:
-            column_name_after = 'tie'
-        elif run_diff_after <= -10:
-            column_name_after = 'd10'
-        elif run_diff_after >= 10:
-            column_name_after = 'u10'
-        elif -10 < run_diff_after < 0:
-            column_name_after = 'd%s' % str(run_diff_after)[1]
-        elif 0 < run_diff_after < 10:
-            column_name_after = 'u%s' % run_diff_after
-        else:
-            column_name_after = None
-            print('Something went horribly wrong')
-
-        win_prob_before_key = '%s' % (calc_be[1][1])
-        win_prob_after_key = '%s' % (calc_be[16][1])
-
-        if 'T' in calc_be[1]:
-            win_prob_before_key += '1'
-        else:
-            win_prob_before_key += '2'
-        if 'T' in calc_be[16]:
-            win_prob_after_key += '1'
-        else:
-            win_prob_after_key += '2'
-        win_prob_before_key += '%s%s' % (calc_be[3], calc_be[2])
-        win_prob_after_key += '%s%s' % (calc_be[18], calc_be[17])
-
-        sql = '''SELECT %s from winProbability ''' % column_name_before
-        sql += '''WHERE gameState=%s'''
-        win_prob_before = db.fetch_data(sql, (int(win_prob_before_key),))[0][0]
-
-        sql = '''SELECT %s from winProbability ''' % column_name_after
-        sql += '''WHERE gameState=%s'''
-        win_prob_after = db.fetch_data(sql, (int(win_prob_after_key),))[0][0]
-
-        if win_prob_before_key[0:2] != win_prob_after_key[0:2]:
-            win_prob_after = 100 - win_prob_after
-
-        batterWPA = ''
-        pitcherWPA = ''
-
-        if win_prob_before and win_prob_after:
-            batterWPA = win_prob_after - win_prob_before
-            wpa = '%.2f' % batterWPA
-            batterWPA = wpa + '%'
-            if batterWPA[0] == '-':
-                pitcherWPA = batterWPA[1:]
-            else:
-                pitcherWPA = '-' + batterWPA
+        # Sheet isn't calculating RBIs currently
+        rbi = 0
+        if diff and 'steal' not in calc_be[10].lower() and 'DP' not in calc_be[12].upper():
+            rbi = (int(calc_be[20]) + int(calc_be[19])) - (int(calc_be[5]) + int(calc_be[4]))
 
         # Update Game Log with current game state
+        away_score_after = int(calc_be[20])
+        home_score_after = int(calc_be[19])
+        inning_after = calc_be[16]
+        outs_after = int(calc_be[17])
+        obc_after = int(calc_be[18])
         sql = '''UPDATE gameData SET awayScore=%s, homeScore=%s, inning=%s, outs=%s, obc=%s WHERE sheetID=%s'''
-        game_log = (int(calc_be[20]), int(calc_be[19]), calc_be[16], int(calc_be[17]), int(calc_be[18]), sheet_id)
+        game_log = (away_score_after, home_score_after, inning_after, outs_after, obc_after, sheet_id)
         db.update_database(sql, game_log)
 
-        pa_log = (paID, league, season, session, gameID, inning, inningID, play_number, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB)
+        pa_log = format_pa_log(league, season, session, gameID, inning, play_number, outs, obc, awayScore, homeScore,
+                               away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult,
+                               oldResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB,
+                               inning_after, obc_after, outs_after, away_score_after, home_score_after)
+        # pa_log = (paID, league, season, session, gameID, inning, inningID, play_number, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB)
         sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
         db.update_database(sql, pa_log)
-
     return
+
+
+def calculate_win_prob(inning_before, outs_before, obc_before, away_score_before, home_score_before, inning_after,
+                       outs_after, obc_after, away_score_after, home_score_after):
+    if 'T' in inning_before:
+        run_diff_before = away_score_before - home_score_before
+        if 'T' in inning_after:
+            run_diff_after = home_score_after - away_score_after
+        else:
+            run_diff_after = away_score_after - home_score_after
+    else:
+        run_diff_before = home_score_before - away_score_before
+        if 'B' in inning_after:
+            run_diff_after = away_score_after - home_score_after
+        else:
+            run_diff_after = home_score_after - away_score_after
+    if run_diff_before == 0:
+        column_name_before = 'tie'
+    elif run_diff_before <= -10:
+        column_name_before = 'd10'
+    elif run_diff_before >= 10:
+        column_name_before = 'u10'
+    elif -10 < run_diff_before < 0:
+        column_name_before = 'd%s' % str(run_diff_before)[1]
+    elif 0 < run_diff_before < 10:
+        column_name_before = 'u%s' % run_diff_before
+    else:
+        column_name_before = None
+
+    if run_diff_after == 0:
+        column_name_after = 'tie'
+    elif run_diff_after <= -10:
+        column_name_after = 'd10'
+    elif run_diff_after >= 10:
+        column_name_after = 'u10'
+    elif -10 < run_diff_after < 0:
+        column_name_after = 'd%s' % str(run_diff_after)[1]
+    elif 0 < run_diff_after < 10:
+        column_name_after = 'u%s' % run_diff_after
+    else:
+        column_name_after = None
+
+    win_prob_before_key = '%s' % (inning_before[1])
+    win_prob_after_key = '%s' % (inning_after[1])
+
+    if 'T' in inning_before:
+        win_prob_before_key += '1'
+    else:
+        win_prob_before_key += '2'
+    if 'T' in inning_after:
+        win_prob_after_key += '1'
+    else:
+        win_prob_after_key += '2'
+    win_prob_before_key += '%s%s' % (obc_before, outs_before)
+    win_prob_after_key += '%s%s' % (obc_after, outs_after)
+
+    sql = '''SELECT %s from winProbability ''' % column_name_before
+    sql += '''WHERE gameState=%s'''
+    win_prob_before = db.fetch_data(sql, (int(win_prob_before_key),))[0][0]
+
+    sql = '''SELECT %s from winProbability ''' % column_name_after
+    sql += '''WHERE gameState=%s'''
+    win_prob_after = db.fetch_data(sql, (int(win_prob_after_key),))[0][0]
+
+    if win_prob_before_key[0:2] != win_prob_after_key[0:2]:
+        if win_prob_after:
+            win_prob_after = 100 - win_prob_after
+        else:
+            win_prob_after = 0
+
+    batter_wpa = ''
+    pitcher_wpa = ''
+
+    if win_prob_before and win_prob_after:
+        batter_wpa = win_prob_after - win_prob_before
+        wpa = '%.2f' % batter_wpa
+        batter_wpa = wpa + '%'
+        if batter_wpa[0] == '-':
+            pitcher_wpa = batter_wpa[1:]
+        else:
+            pitcher_wpa = '-' + batter_wpa
+    return batter_wpa, pitcher_wpa
+
+
+def format_pa_log(league, season, session, game_id, inning, play_number, outs, obc, away_score, home_score, away_team,
+                  home_team, pitcher_name, hitter_name, pitch, swing, diff, exact_result, old_result, result_at_neutral,
+                  result_all_neutral, rbi, run, pr3B, pr2B, pr1B, prAB, after_inning, after_obc, after_outs,
+                  after_away_score, after_home_score):
+    league = league.lower()
+    if 'T' in inning:
+        pitcher_team = away_team
+        hitter_team = home_team
+    else:
+        pitcher_team = home_team
+        hitter_team = away_team
+
+    if not run:
+        run = None
+
+    paID = get_pa_id(league, season, session, game_id, play_number)
+
+    sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
+    inning_data = db.fetch_data(sql, (league, season, session, game_id, inning))
+    if inning_data:
+        inningID = inning_data[0][0]
+    else:
+        inningID = read_config(league_config, league.upper(), 'inningid')
+        inningID = int(inningID)
+        write_config(league_config, league.upper(), 'inningid', str(inningID + 1))
+
+    # Fetch player IDs for pitcher and batter
+    sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
+    hitter = db.fetch_data(sql, ('%' + hitter_name + '%',))
+    pitcher = db.fetch_data(sql, ('%' + pitcher_name + '%',))
+
+    hitter_id = None
+    pitcher_id = None
+    if hitter:
+        hitter_id = hitter[0][0]
+    if pitcher:
+        pitcher_id = pitcher[0][0]
+
+    if pitch == ' ':
+        pitch = None
+    else:
+        pitch = int(pitch)
+    if swing == ' ':
+        swing = None
+    else:
+        swing = int(swing)
+    if diff == ' ' or diff == 'x':
+        diff = None
+    else:
+        diff = int(diff)
+
+    if pr3B and pr3B != '#REF!':
+        pr3B = db.fetch_data(sql, ('%' + pr3B + '%',))[0][0]
+    else:
+        pr3B = None
+    if pr2B and pr2B != '#REF!':
+        pr2B = db.fetch_data(sql, ('%' + pr2B + '%',))[0][0]
+    else:
+        pr2B = None
+    if pr1B and pr1B != '#REF!':
+        pr1B = db.fetch_data(sql, ('%' + pr1B + '%',))[0][0]
+    else:
+        pr1B = None
+    if prAB and prAB != '#REF!':
+        prAB = db.fetch_data(sql, ('%' + prAB + '%',))[0][0]
+    else:
+        prAB = None
+
+    batter_wpa, pitcher_wpa = calculate_win_prob(inning, outs, obc, away_score, home_score, after_inning, after_outs, after_obc, after_away_score, after_home_score)
+
+    return paID, league, season, session, game_id, inning, inningID, play_number, outs, obc, away_score, home_score, pitcher_team, pitcher_name, pitcher_id, hitter_team, hitter_name, hitter_id, pitch, swing, diff, exact_result, old_result, result_at_neutral, result_all_neutral, rbi, run, batter_wpa, pitcher_wpa, pr3B, pr2B, pr1B, prAB
 
 
 def raw_text(rows):
