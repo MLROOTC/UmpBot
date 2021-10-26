@@ -19,6 +19,11 @@ def get_sheet_id(url):
     return url[:index]
 
 
+def append_sheet(spreadsheet_id, page_name, data):
+    get_service_sheets().append(spreadsheetId=spreadsheet_id, range=page_name, valueInputOption='USER_ENTERED', insertDataOption='INSERT_ROWS',
+                                body={"values": [list(data)]}).execute()
+
+
 def read_sheet(spreadsheet_id, page_name):
     service = get_service_sheets()
     return service.get(spreadsheetId=spreadsheet_id, range=page_name).execute().get('values', [])

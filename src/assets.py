@@ -26,8 +26,10 @@ calc_cell = {
     'discord_ping': 'Calculator!B18:B21',
     'due_up': 'Box Score!C69',  # nice
     'event': 'Calculator!F6',
+    'game_awards_input': 'Game Awards Input',
     'game_complete': 'Calculator!G12',
     'game_data': 'Starting Lineups!B2:H2',
+    'game_data_import': 'Game Data Import!A1:I1',
     'game_end': 'Calculator!I5',
     'game_log': 'Game Log',
     'game_state': 'Calculator!B3:F3',
@@ -51,6 +53,7 @@ calc_cell = {
     'result': 'Calculator!F8:F10',
     'lineup_check': 'Starting Lineups!B18:E18',
     'season_session': 'Template!C17',
+    'starting_pitchers': 'Starting Lineups!B16:F16',
     'swing': 'Calculator!C6',
     'ump_list': 'Calculator!F24:F26'
 }
