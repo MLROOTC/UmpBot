@@ -179,52 +179,54 @@ class Ump(commands.Cog):
                         game_log = sheets.read_sheet(sheet_id, assets.calc_cell['game_log'])
                         for i in range(len(game_log)):
                             pa = game_log[i]
-                            if pa[0] != 'Before Swing' and pa[0] != 'IP Outs' and pa[6] != '':
-                                print(pa)
-                                inning = pa[1]
-                                playNumber = i - 1
-                                outs = int(pa[2])
-                                obc = int(pa[3])
-                                awayScore = int(pa[5])
-                                homeScore = int(pa[4])
-                                pitcherName = pa[8]
-                                hitterName = pa[6]
-                                pitch = pa[9]
-                                swing = pa[7]
-                                diff = pa[11]
-                                exactResult = pa[88]
-                                resultAtNeutral = pa[89]
-                                resultAllNeutral = pa[90]
-                                rbi = int(pa[13])
-                                run = int(pa[14])
-                                pr3B = None
-                                pr2B = None
-                                pr1B = None
-                                prAB = None
-                                if len(pa) >= 98:
-                                    pr3B = pa[97]
-                                if len(pa) >= 99:
-                                    pr2B = pa[98]
-                                if len(pa) >= 100:
-                                    pr1B = pa[99]
-                                if len(pa) >= 101:
-                                    prAB = pa[100]
-                                inning_after = pa[16]
-                                obc_after = int(pa[18])
-                                outs_after = int(pa[17])
-                                away_score_after = int(pa[20])
-                                home_score_after = int(pa[19])
-                                pa_id = get_pa_id(league, season, session, gameID, playNumber)
-                                sql = '''SELECT * FROM PALogs WHERE paID=%s'''
-                                pa_in_db = db.fetch_data(sql, (pa_id,))
-                                pa_in_sheet = format_pa_log(league, season, session, gameID, inning, playNumber, outs, obc, awayScore, homeScore, away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult, exactResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB, inning_after, obc_after, outs_after, away_score_after, home_score_after)
-                                if not pa_in_db:
-                                    sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
-                                else:
-                                    pa_in_db = pa_in_db[0]
-                                    if pa_in_db != pa_in_sheet:
-                                        sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
-                                        db.update_database(sql, (pa_in_sheet + (pa_id,)))
+                            if pa[0] != 'Before Swing' and pa[0] != 'IP Outs':
+                                if len(pa) > 6:
+                                    if pa[6] != '':
+                                        inning = pa[1]
+                                        playNumber = i - 1
+                                        outs = int(pa[2])
+                                        obc = int(pa[3])
+                                        awayScore = int(pa[5])
+                                        homeScore = int(pa[4])
+                                        pitcherName = pa[8]
+                                        hitterName = pa[6]
+                                        pitch = pa[9]
+                                        swing = pa[7]
+                                        diff = pa[11]
+                                        exactResult = pa[88]
+                                        resultAtNeutral = pa[89]
+                                        resultAllNeutral = pa[90]
+                                        rbi = int(pa[13])
+                                        run = int(pa[14])
+                                        pr3B = None
+                                        pr2B = None
+                                        pr1B = None
+                                        prAB = None
+                                        if len(pa) >= 98:
+                                            pr3B = pa[97]
+                                        if len(pa) >= 99:
+                                            pr2B = pa[98]
+                                        if len(pa) >= 100:
+                                            pr1B = pa[99]
+                                        if len(pa) >= 101:
+                                            prAB = pa[100]
+                                        inning_after = pa[16]
+                                        obc_after = int(pa[18])
+                                        outs_after = int(pa[17])
+                                        away_score_after = int(pa[20])
+                                        home_score_after = int(pa[19])
+                                        pa_id = get_pa_id(league, season, session, gameID, playNumber)
+                                        sql = '''SELECT * FROM PALogs WHERE paID=%s'''
+                                        pa_in_db = db.fetch_data(sql, (pa_id,))
+                                        pa_in_sheet = format_pa_log(league, season, session, gameID, inning, playNumber, outs, obc, awayScore, homeScore, away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult, exactResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB, inning_after, obc_after, outs_after, away_score_after, home_score_after)
+                                        if not pa_in_db:
+                                            sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+                                            db.update_database(sql, pa_in_sheet)
+                                        else:
+                                            pa_in_db = pa_in_db[0]
+                                            if pa_in_db != pa_in_sheet:
+                                                sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
+                                                db.update_database(sql, (pa_in_sheet + (pa_id,)))
                     starting_pitchers = sheets.read_sheet(sheet_id, assets.calc_cell['starting_pitchers'])
                     sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
                     winning_pitcher_id = db.fetch_data(sql, ('%' + winning_pitcher + '%',))
@@ -966,13 +968,9 @@ def log_result(sheet_id, away_team, home_team):
         else:
             league = 'mlr'
 
-    # Fetch data from configs
-    season = int(read_config(league_config, league.upper(), 'season'))
-    session = int(read_config(league_config, league.upper(), 'session'))
-
     # Get game ID from database
-    sql = '''SELECT gameID from gameData where sheetID = %s'''
-    gameID = db.fetch_data(sql, (sheet_id,))
+    sql = '''SELECT gameID, season, session from gameData where sheetID = %s'''
+    gameID, season, session = db.fetch_data(sql, (sheet_id,))
     if gameID:
         gameID = gameID[0][0]
 
