@@ -970,8 +970,10 @@ def log_result(sheet_id, away_team, home_team):
 
     # Get game ID from database
     sql = '''SELECT gameID, season, session from gameData where sheetID = %s'''
-    gameID, season, session = db.fetch_data(sql, (sheet_id,))
+    gameID = db.fetch_data(sql, (sheet_id,))
     if gameID:
+        season = gameID[0][1]
+        session = gameID[0][2]
         gameID = gameID[0][0]
 
     if calc_be:
