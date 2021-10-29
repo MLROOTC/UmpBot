@@ -194,13 +194,17 @@ class Admin(commands.Cog):
     @commands.has_role(ump_admin)
     async def set_season(self, ctx, league, season):
         write_config(league_config, league.upper(), 'season', season)
+        sql = '''UPDATE seasonData SET season=%s WHERE league=%s'''
+        db.update_database(sql, (season, league))
         await ctx.send('%s season set to %s.' % (league, read_config(league_config, league.upper(), 'season')))
 
     @commands.command(brief='Set session number',
                       description='Sets session number in the config.')
     @commands.has_role(ump_admin)
-    async def set_session(self, ctx, league, season):
-        write_config(league_config, league.upper(), 'session', season)
+    async def set_session(self, ctx, league, session):
+        write_config(league_config, league.upper(), 'session', session)
+        sql = '''UPDATE seasonData SET session=%s WHERE league=%s'''
+        db.update_database(sql, (session, league))
         await ctx.send('%s session set to %s.' % (league, read_config(league_config, league.upper(), 'session')))
 
     @commands.command(brief='Syncs the database to the backend sheet',
