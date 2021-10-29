@@ -255,7 +255,7 @@ class Admin(commands.Cog):
             if len(team) > 2:
                 gm = team[1]
             if len(team) > 3:
-                gm = team[2]
+                cogm = team[2]
             if len(team) > 6:
                 captain1 = team[5]
             if len(team) > 7:
