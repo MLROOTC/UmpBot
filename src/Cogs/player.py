@@ -589,7 +589,7 @@ async def get_player(ctx, name):
 
 
 def player_embed(player):
-    player_id, player_name, team, batting_type, pitching_type, hand_bonus, hand, pos1, pos2, pos3, reddit_name, discord_name, discord_id, format_no, status = player
+    player_id, player_name, team, batting_type, pitching_type, hand_bonus, hand, pos1, pos2, pos3, reddit_name, discord_name, discord_id, format_no, status, posValue = player
     if not discord_name:
         discord_name = '--'
     if discord_id:

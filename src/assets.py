@@ -38,7 +38,7 @@ calc_cell = {
     'il_standings': 'Standings!F3:I16',
     'league': 'Starting Lineups!G2',
     'milr': 'Starting Lineups!G2',
-    'milr_appointments': 'Player Appointments!J3:P30',
+    'milr_appointments': 'Player Appointments!J3:Q30',
     'mlr_appointments': 'Player Appointments!A3:I32',
     'next_up': 'Box Score!C8',
     'nl_east': 'Standings!A4:D8',
