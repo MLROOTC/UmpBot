@@ -824,21 +824,25 @@ def team_embed(team_abbr):
         for team_data in appointments:
             if team_data[0] == team_abbr:
                 teams = 'None'
+                gms = 'None'
+                if len(team_data) >= 2:
+                    if team_data[1]:
+                        gms = team_data[1]
                 if len(team_data) >= 3:
                     if team_data[2]:
-                        teams = team_data[2]
+                        gms += ', %s' % team_data[2]
                 if len(team_data) >= 4:
                     if team_data[3]:
-                        teams += ', %s' % team_data[3]
-                embed.add_field(name='MLR Team(s)', value=teams)
-                embed.add_field(name='GM', value=team_data[1], inline=False)
-                captains = 'None'
+                        teams = team_data[3]
                 if len(team_data) >= 5:
                     if team_data[4]:
-                        captains = team_data[4]
+                        teams += ', %s' % team_data[4]
+                embed.add_field(name='MLR Team(s)', value=teams)                
+                embed.add_field(name='GMs', value=gms, inline=False)
+                captains = 'None'
                 if len(team_data) >= 6:
                     if team_data[5]:
-                        captains += '\n%s' % team_data[5]
+                        captains = team_data[5]
                 if len(team_data) >= 7:
                     if team_data[6]:
                         captains += '\n%s' % team_data[6]
