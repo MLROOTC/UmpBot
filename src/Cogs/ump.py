@@ -605,6 +605,14 @@ class Ump(commands.Cog):
                 return result_reaction.message.id == result_msg.id and ump_user == ctx.message.author and str(
                     result_reaction.emoji) in ['👎', '\N{baseball}']
 
+            calc_be = sheets.read_sheet(sheet_id, assets.calc_cell['calc_be'])
+            before_home_score = calc_be[0][4]
+            before_away_score = calc_be[0][5]
+            after_home_score = calc_be[0][19]
+            after_away_score = calc_be[0][20]
+            before_score = int(before_home_score) + int(before_away_score)
+            after_score = int(after_home_score) + int(after_away_score)
+
             reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
             if reaction.emoji == '\N{baseball}':
                 await prompt_msg.edit(content='Resulting at bat, please wait sheets API can be slow...')
@@ -621,7 +629,6 @@ class Ump(commands.Cog):
                 return
 
             gamestate_after = sheets.read_sheet(sheet_id, assets.calc_cell['game_state'])[0]
-            after_score = gamestate_after[0]
             after_inning = gamestate_after[1]
             after_outs = gamestate_after[2]
             after_obc_count = gamestate_after[3]
@@ -663,7 +670,7 @@ class Ump(commands.Cog):
                     hook = Webhook(home_team[4])
                     hook.send(embed=embed)
 
-            if before_score != after_score and before_score != 'Start of Game':
+            if before_score != after_score:
                 await ctx.send("Run scores! Don't forget to ping!")
                 if result_team:
                     await ctx.send('-hype %s %s' % (result_team[1], thread))
