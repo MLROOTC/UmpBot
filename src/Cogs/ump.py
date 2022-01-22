@@ -629,6 +629,7 @@ class Ump(commands.Cog):
                 return
 
             gamestate_after = sheets.read_sheet(sheet_id, assets.calc_cell['game_state'])[0]
+            after_score_string = gamestate_after[0]
             after_inning = gamestate_after[1]
             after_outs = gamestate_after[2]
             after_obc_count = gamestate_after[3]
@@ -643,7 +644,7 @@ class Ump(commands.Cog):
             text = "%s batting against %s\n%s with %s\n\n" % (batter, pitcher, before_inning, before_outs)
             text += "%s\n" % result_raw
             text += "%s, %s with %s\n\n" % (after_obc_string, after_inning, after_outs)
-            text += "%s" % after_score
+            text += "%s" % after_score_string
 
             await result_msg.edit(content='```%s```' % text)
 
