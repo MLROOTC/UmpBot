@@ -22,6 +22,7 @@ calc_cell = {
     'boxscore': 'Box Score!A1:A77',
     'calc_be': 'CalculatorBE!A3:CM3',
     'current_situation': 'Box Score!C6',
+    'dia_standings': 'Standings!F4:I7',
     'discord_name': 'Calculator!B22',
     'discord_ping': 'Calculator!B18:B21',
     'due_up': 'Box Score!C69',  # nice
@@ -35,7 +36,7 @@ calc_cell = {
     'game_state': 'Calculator!B3:F3',
     'home_score': 'CalculatorBE!E3',
     'home_team': 'Starting Lineups!E2',
-    'il_standings': 'Standings!F3:I16',
+    'ind_standings': 'Standings!A4:D7',
     'league': 'Starting Lineups!G2',
     'milr': 'Starting Lineups!G2',
     'milr_appointments': 'Player Appointments!J3:Q30',
@@ -45,7 +46,6 @@ calc_cell = {
     'nl_central': 'Standings!E4:H8',
     'nl_west': 'Standings!I4:L8',
     'nl_wildcard': 'Standings!N3:Q14',
-    'pcl_standings': 'Standings!A3:D16',
     'pitch': 'Calculator!E6',
     'pitcher_name': 'Calculator!D6',
     'play_number': 'Calculator!G6',
@@ -55,7 +55,9 @@ calc_cell = {
     'season_session': 'Template!C17',
     'starting_pitchers': 'Starting Lineups!B16:F16',
     'swing': 'Calculator!C6',
-    'ump_list': 'Calculator!F24:F26'
+    'twi_standings': 'Standings!A12:D15',
+    'ump_list': 'Calculator!F24:F26',
+    'wnd_standings': 'Standings!F12:I15'
 }
 
 batting_types = {
@@ -95,39 +97,6 @@ hand_bonus = {
     'B': 'Balanced',
     'H': 'Anti-Homer',
     'S': 'Anti-Single'
-}
-
-milr_affiliate = {
-    'ARI': 'BBB',
-    'ATL': 'BAC',
-    'BAL': 'TTT',
-    'BOS': 'PUK',
-    'CHC': 'HEL',
-    'CIN': 'CWJ',
-    'CLE': 'SAS',
-    'COL': 'SAS',
-    'CWS': 'SLT',
-    'DET': 'BAC',
-    'HOU': 'SGP',
-    'KCR': 'SUP',
-    'LAA': 'PBA',
-    'LAD': 'POR',
-    'MIA': 'CBC',
-    'MIL': 'WWC',
-    'MIN': 'FRG',
-    'MTL': 'MVS',
-    'NYM': 'CIM',
-    'NYY': 'RBD',
-    'OAK': 'PHB',
-    'PHI': 'JEF',
-    'PIT': 'AAL',
-    'SDP': 'LID',
-    'SEA': 'TAK',
-    'SFG': 'MPD',
-    'STL': 'MBT',
-    'TBR': 'SAR',
-    'TEX': 'SUP',
-    'TOR': 'RBA'
 }
 
 stadium_image = {

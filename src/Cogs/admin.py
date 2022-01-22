@@ -312,7 +312,7 @@ class Admin(commands.Cog):
                 else:
                     sql = '''INSERT INTO playerData (playerName, Team, batType, pitchType, pitchBonus, hand, priPos, secPos, tertPos, redditName, discordName, Status, posValue, playerID) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
                     db.update_database(sql, player_in_sheet)
-                    error_log.send('Added new player: `%s`' % player_in_sheet)
+                    error_log.send(f'Added new player: `{player_in_sheet}`')
                     continue
                 if player_in_db != player_in_sheet:
                     sql = '''UPDATE playerData SET playerName=%s, Team=%s, batType=%s, pitchType=%s, pitchBonus=%s, hand=%s, priPos=%s, secPos=%s, tertPos=%s, redditName=%s, discordName=%s, Status=%s, posValue=%s WHERE playerID=%s'''

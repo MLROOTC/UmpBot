@@ -89,7 +89,7 @@ class Player(commands.Cog):
         claiming_player = await get_player(ctx, player_name)
         if not claiming_player:
             return
-        if claiming_player[14]:
+        if claiming_player[12]:
             await ctx.send('Player has already been claimed.')
             return
         claiming_account = db.fetch_data('''SELECT * FROM playerData WHERE discordID = %s''', (ctx.author.id,))
@@ -176,8 +176,8 @@ class Player(commands.Cog):
         else:
             await ctx.send('Couldn\'t find any stats for this player.')
 
-    @commands.command(brief='FCB Pitching Stats',
-                      description='Displays pitching stats for MiLR')
+    @commands.command(brief='GIB Pitching Stats',
+                      description='Displays pitching stats for GIB')
     async def gpstats(self, ctx, *, playername=None):
         if playername:
             player = await get_player(ctx, playername)
@@ -197,8 +197,8 @@ class Player(commands.Cog):
         else:
             await ctx.send('Couldn\'t find any stats for this player.')
 
-    @commands.command(brief='FCB Batting Stats',
-                      description='Displays batting stats for MLR')
+    @commands.command(brief='GIB Batting Stats',
+                      description='Displays batting stats for GIB')
     async def gstats(self, ctx, *, playername=None):
         if playername:
             player = await get_player(ctx, playername)
@@ -230,24 +230,35 @@ class Player(commands.Cog):
         await ctx.send(self.config_ini['URLs']['bot_invite_link'])
 
     @commands.command(brief='Sends the MiLR roster sheet',
-                      description='Gives the MiLR roster sheet')
+                      description='Gives the MiLR roster sheet',
+                      aliases=['milrroster'])
     async def milrrosters(self, ctx):
         await ctx.send(self.config_ini['URLs']['milr_roster'])
 
     @commands.command(brief='MiLR Standings')
     async def milrstandings(self, ctx):
         sheet_id = sheets.get_sheet_id(config_ini['URLs']['milr_roster'])
-        il_standings = sheets.read_sheet(sheet_id, assets.calc_cell['il_standings'])
-        pcl_standings = sheets.read_sheet(sheet_id, assets.calc_cell['pcl_standings'])
-        il = 'Team                     W  L GB'
-        pcl = 'Team                     W  L GB'
-        for team in il_standings:
-            il += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
-        for team in pcl_standings:
-            pcl += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        dia_standings = sheets.read_sheet(sheet_id, assets.calc_cell['dia_standings'])
+        ind_standings = sheets.read_sheet(sheet_id, assets.calc_cell['ind_standings'])
+        twi_standings = sheets.read_sheet(sheet_id, assets.calc_cell['twi_standings'])
+        wnd_standings = sheets.read_sheet(sheet_id, assets.calc_cell['wnd_standings'])
+        dia = 'Team                     W  L GB'
+        ind = 'Team                     W  L GB'
+        twi = 'Team                     W  L GB'
+        wnd = 'Team                     W  L GB'
+        for team in dia_standings:
+            dia += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        for team in ind_standings:
+            ind += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        for team in twi_standings:
+            twi += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        for team in wnd_standings:
+            wnd += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
         embed = discord.Embed(title='MiLR Standings')
-        embed.add_field(name='International League', value='```%s```' % il, inline=False)
-        embed.add_field(name='Pacific Coast League', value='```%s```' % pcl, inline=False)
+        embed.add_field(name='Diamond Division', value=f'```{dia}```', inline=False)
+        embed.add_field(name='Independence Division', value=f'```{ind}```', inline=False)
+        embed.add_field(name='Twisted Division', value=f'```{twi}```', inline=False)
+        embed.add_field(name='Windflower Division', value=f'```{wnd}```', inline=False)
         embed.set_footer(text='x - Clinched Playoffs\ny - Clinched Bye\ne - Eliminated')
         await ctx.send(embed=embed)
 
@@ -406,7 +417,8 @@ class Player(commands.Cog):
         await ctx.send(response)
 
     @commands.command(brief='Sends the MLR roster sheet',
-                      description='Gives the MiLR roster sheet')
+                      description='Gives the MiLR roster sheet',
+                      aliases=['roster'])
     async def rosters(self, ctx):
         await ctx.send(self.config_ini['URLs']['mlr_roster'])
 
@@ -474,7 +486,8 @@ class Player(commands.Cog):
             await ctx.send('Couldn\'t find any stats for this player.')
 
     @commands.command(brief='Stealing ranges',
-                      description='Stealing ranges')
+                      description='Stealing ranges',
+                      aliases=['steal', 'steak', 'steaks'])
     async def steals(self, ctx):
         await ctx.send(self.config_ini['URLs']['steals'])
 
@@ -666,12 +679,9 @@ def pstats_embed(player, league):
                 hand_bonus = player[5]
             description = '%s (%s) | %s' % (pitching_type, hand_bonus, player[6])
             if player[2]:
-                if league == 'mlr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
-                elif league == 'milr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (assets.milr_affiliate[player[2]],))
-                else:
-                    team = None
+                team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
+                if league == 'milr':
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (team[0][16],))
                 if team:
                     if len(team) == 1:
                         team = team[0]
@@ -734,12 +744,9 @@ def stats_embed(player, league):
                 batting_type = player[3]
             description = '%s | %s ' % (batting_type, player[6])
             if player[2]:
-                if league == 'mlr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
-                elif league == 'milr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (assets.milr_affiliate[player[2]],))
-                else:
-                    team = None
+                team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
+                if league == 'milr':
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (team[0][16],))
                 if team:
                     if len(team) == 1:
                         team = team[0]
@@ -787,63 +794,40 @@ def team_embed(team_abbr):
                 embed.add_field(name='Record', value=record[0][0][7:])
             else:
                 embed.add_field(name='Record', value='--')
-        appointments = sheets.read_sheet(sheet_id, assets.calc_cell['mlr_appointments'])
-        for team_data in appointments:
-            if team_data[0] == team_abbr:
-                captain_list = 'None'
-                committee_list = 'None'
-                awards_list = 'None'
-                if len(team_data) >= 3:
-                    if team_data[2]:
-                        captain_list = '%s' % team_data[2]
-                if len(team_data) >= 4:
-                    if team_data[3]:
-                        captain_list += '\n%s' % team_data[3]
-                if len(team_data) >= 5:
-                    if team_data[4]:
-                        captain_list += '\n%s' % team_data[4]
-                if len(team_data) >= 6:
-                    if team_data[5]:
-                        committee_list = '%s' % team_data[5]
-                if len(team_data) >= 7:
-                    if team_data[6]:
-                        committee_list += '\n%s' % team_data[6]
-                if len(team_data) >= 8:
-                    if team_data[7]:
-                        awards_list = '%s' % team_data[7]
-                if len(team_data) >= 9:
-                    if team_data[8]:
-                        awards_list += '\n%s' % team_data[8]
-                embed.add_field(name='GM', value=team_data[1], inline=False)
-                embed.add_field(name='Captains', value=captain_list)
-                embed.add_field(name='Committee', value=committee_list)
-                embed.add_field(name='Awards', value=awards_list)
-                break
+        gm = team[7]
+        co_gm = team[8]
+        captain1 = team[9]
+        captain2 = team[10]
+        captain3 = team[11]
+        committee1 = team[12]
+        committee2 = team[13]
+        awards1 = team[14]
+        awards2 = team[15]
+        milr_team = team[16]
+        if gm or co_gm:
+            embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
+        if captain1 or captain2 or captain3:
+            embed.add_field(name='Captains', value='\n'.join([captain1, captain2, captain3]), inline=True)
+        if committee1 or committee2:
+            embed.add_field(name='Committee', value='\n'.join([committee1, committee2]), inline=True)
+        if committee1 or committee2:
+            embed.add_field(name='Awards', value='\n'.join([awards1, awards2]), inline=True)
+        if milr_team:
+            embed.add_field(name='MiLR Team', value=milr_team)
     elif team[5] == 'milr':
-        appointments = sheets.read_sheet(sheet_id, assets.calc_cell['milr_appointments'])
-        for team_data in appointments:
-            if team_data[0] == team_abbr:
-                teams = 'None'
-                if len(team_data) >= 3:
-                    if team_data[2]:
-                        teams = team_data[2]
-                if len(team_data) >= 4:
-                    if team_data[3]:
-                        teams += ', %s' % team_data[3]
-                embed.add_field(name='MLR Team(s)', value=teams)
-                embed.add_field(name='GM', value=team_data[1], inline=False)
-                captains = 'None'
-                if len(team_data) >= 5:
-                    if team_data[4]:
-                        captains = team_data[4]
-                if len(team_data) >= 6:
-                    if team_data[5]:
-                        captains += '\n%s' % team_data[5]
-                if len(team_data) >= 7:
-                    if team_data[6]:
-                        captains += '\n%s' % team_data[6]
-                embed.add_field(name='Captains', value=captains)
-                break
+        gm = team[7]
+        co_gm = team[8]
+        captain1 = team[9]
+        captain2 = team[10]
+        sql = f'''SELECT abb FROM teamData WHERE affiliate=%s'''
+        mlr_teams = db.fetch_data(sql, (team_abbr,))
+        mlr_teams = [' '.join(tups) for tups in mlr_teams]
+        if mlr_teams:
+            embed.add_field(name='MLR Affiliate', value='\n'.join(mlr_teams), inline=True)
+        if gm or co_gm:
+            embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
+        if captain1 or captain2:
+            embed.add_field(name='Captains', value='\n'.join([captain1, captain2]), inline=True)
 
     if team[4]:
         embed.add_field(name='Result Webhook', value='Enabled', inline=True)
@@ -853,7 +837,7 @@ def team_embed(team_abbr):
     if park:
         park = park[0]
         park_factors = '```HR: %s\n3B: %s\n2B: %s\n1B: %s\nBB: %s```' % (park[2], park[3], park[4], park[5], park[6])
-        embed.add_field(name='Park', value=park[1], inline=False)
+        embed.add_field(name='Park', value=park[1], inline=True)
         embed.add_field(name='Park Factors', value=park_factors, inline=False)
 
     return embed
@@ -889,5 +873,8 @@ def scoreboard(league, season, session):
                 scoreboard_txt += '%3s %2s   %s   %s   %s out\r\n\r\n```' % (home_team, home_score, b3, b1, outs)
             scoreboard_txt += ''
         scoreboard_txt += ''
-        return scoreboard_txt
+        if scoreboard_txt:
+            return scoreboard_txt
+        else:
+            return '--'
     return '--'
