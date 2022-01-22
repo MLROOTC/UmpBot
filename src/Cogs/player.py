@@ -787,63 +787,40 @@ def team_embed(team_abbr):
                 embed.add_field(name='Record', value=record[0][0][7:])
             else:
                 embed.add_field(name='Record', value='--')
-        appointments = sheets.read_sheet(sheet_id, assets.calc_cell['mlr_appointments'])
-        for team_data in appointments:
-            if team_data[0] == team_abbr:
-                captain_list = 'None'
-                committee_list = 'None'
-                awards_list = 'None'
-                if len(team_data) >= 3:
-                    if team_data[2]:
-                        captain_list = '%s' % team_data[2]
-                if len(team_data) >= 4:
-                    if team_data[3]:
-                        captain_list += '\n%s' % team_data[3]
-                if len(team_data) >= 5:
-                    if team_data[4]:
-                        captain_list += '\n%s' % team_data[4]
-                if len(team_data) >= 6:
-                    if team_data[5]:
-                        committee_list = '%s' % team_data[5]
-                if len(team_data) >= 7:
-                    if team_data[6]:
-                        committee_list += '\n%s' % team_data[6]
-                if len(team_data) >= 8:
-                    if team_data[7]:
-                        awards_list = '%s' % team_data[7]
-                if len(team_data) >= 9:
-                    if team_data[8]:
-                        awards_list += '\n%s' % team_data[8]
-                embed.add_field(name='GM', value=team_data[1], inline=False)
-                embed.add_field(name='Captains', value=captain_list)
-                embed.add_field(name='Committee', value=committee_list)
-                embed.add_field(name='Awards', value=awards_list)
-                break
+        gm = team[7]
+        co_gm = team[8]
+        captain1 = team[9]
+        captain2 = team[10]
+        captain3 = team[11]
+        committee1 = team[12]
+        committee2 = team[13]
+        awards1 = team[14]
+        awards2 = team[15]
+        milr_team = team[16]
+        if gm or co_gm:
+            embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
+        if captain1 or captain2 or captain3:
+            embed.add_field(name='Captains', value='\n'.join([captain1, captain2, captain3]), inline=True)
+        if committee1 or committee2:
+            embed.add_field(name='Committee', value='\n'.join([committee1, committee2]), inline=True)
+        if committee1 or committee2:
+            embed.add_field(name='Awards', value='\n'.join([awards1, awards2]), inline=True)
+        if milr_team:
+            embed.add_field(name='MiLR Team', value=milr_team)
     elif team[5] == 'milr':
-        appointments = sheets.read_sheet(sheet_id, assets.calc_cell['milr_appointments'])
-        for team_data in appointments:
-            if team_data[0] == team_abbr:
-                teams = 'None'
-                if len(team_data) >= 3:
-                    if team_data[2]:
-                        teams = team_data[2]
-                if len(team_data) >= 4:
-                    if team_data[3]:
-                        teams += ', %s' % team_data[3]
-                embed.add_field(name='MLR Team(s)', value=teams)
-                embed.add_field(name='GM', value=team_data[1], inline=False)
-                captains = 'None'
-                if len(team_data) >= 5:
-                    if team_data[4]:
-                        captains = team_data[4]
-                if len(team_data) >= 6:
-                    if team_data[5]:
-                        captains += '\n%s' % team_data[5]
-                if len(team_data) >= 7:
-                    if team_data[6]:
-                        captains += '\n%s' % team_data[6]
-                embed.add_field(name='Captains', value=captains)
-                break
+        gm = team[7]
+        co_gm = team[8]
+        captain1 = team[9]
+        captain2 = team[10]
+        sql = f'''SELECT abb FROM teamData WHERE affiliate=%s'''
+        mlr_teams = db.fetch_data(sql, (team_abbr,))
+        mlr_teams = [' '.join(tups) for tups in mlr_teams]
+        if mlr_teams:
+            embed.add_field(name='MLR Affiliate', value='\n'.join(mlr_teams), inline=True)
+        if gm or co_gm:
+            embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
+        if captain1 or captain2:
+            embed.add_field(name='Captains', value='\n'.join([captain1, captain2]), inline=True)
 
     if team[4]:
         embed.add_field(name='Result Webhook', value='Enabled', inline=True)
@@ -853,7 +830,7 @@ def team_embed(team_abbr):
     if park:
         park = park[0]
         park_factors = '```HR: %s\n3B: %s\n2B: %s\n1B: %s\nBB: %s```' % (park[2], park[3], park[4], park[5], park[6])
-        embed.add_field(name='Park', value=park[1], inline=False)
+        embed.add_field(name='Park', value=park[1], inline=True)
         embed.add_field(name='Park Factors', value=park_factors, inline=False)
 
     return embed
