@@ -230,7 +230,8 @@ class Player(commands.Cog):
         await ctx.send(self.config_ini['URLs']['bot_invite_link'])
 
     @commands.command(brief='Sends the MiLR roster sheet',
-                      description='Gives the MiLR roster sheet')
+                      description='Gives the MiLR roster sheet',
+                      aliases=['milrroster'])
     async def milrrosters(self, ctx):
         await ctx.send(self.config_ini['URLs']['milr_roster'])
 
@@ -406,7 +407,8 @@ class Player(commands.Cog):
         await ctx.send(response)
 
     @commands.command(brief='Sends the MLR roster sheet',
-                      description='Gives the MiLR roster sheet')
+                      description='Gives the MiLR roster sheet',
+                      aliases=['roster'])
     async def rosters(self, ctx):
         await ctx.send(self.config_ini['URLs']['mlr_roster'])
 
@@ -474,7 +476,8 @@ class Player(commands.Cog):
             await ctx.send('Couldn\'t find any stats for this player.')
 
     @commands.command(brief='Stealing ranges',
-                      description='Stealing ranges')
+                      description='Stealing ranges',
+                      aliases=['steal', 'steak', 'steaks'])
     async def steals(self, ctx):
         await ctx.send(self.config_ini['URLs']['steals'])
 
