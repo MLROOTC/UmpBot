@@ -669,12 +669,9 @@ def pstats_embed(player, league):
                 hand_bonus = player[5]
             description = '%s (%s) | %s' % (pitching_type, hand_bonus, player[6])
             if player[2]:
-                if league == 'mlr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
-                elif league == 'milr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (assets.milr_affiliate[player[2]],))
-                else:
-                    team = None
+                team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
+                if league == 'milr':
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (team[0][16],))
                 if team:
                     if len(team) == 1:
                         team = team[0]
@@ -737,12 +734,9 @@ def stats_embed(player, league):
                 batting_type = player[3]
             description = '%s | %s ' % (batting_type, player[6])
             if player[2]:
-                if league == 'mlr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
-                elif league == 'milr':
-                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (assets.milr_affiliate[player[2]],))
-                else:
-                    team = None
+                team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (player[2],))
+                if league == 'milr':
+                    team = db.fetch_data('''SELECT * FROM teamData WHERE abb=%s''', (team[0][16],))
                 if team:
                     if len(team) == 1:
                         team = team[0]

@@ -97,39 +97,6 @@ hand_bonus = {
     'S': 'Anti-Single'
 }
 
-milr_affiliate = {
-    'ARI': 'BBB',
-    'ATL': 'BAC',
-    'BAL': 'TTT',
-    'BOS': 'PUK',
-    'CHC': 'HEL',
-    'CIN': 'CWJ',
-    'CLE': 'SAS',
-    'COL': 'SAS',
-    'CWS': 'SLT',
-    'DET': 'BAC',
-    'HOU': 'SGP',
-    'KCR': 'SUP',
-    'LAA': 'PBA',
-    'LAD': 'POR',
-    'MIA': 'CBC',
-    'MIL': 'WWC',
-    'MIN': 'FRG',
-    'MTL': 'MVS',
-    'NYM': 'CIM',
-    'NYY': 'RBD',
-    'OAK': 'PHB',
-    'PHI': 'JEF',
-    'PIT': 'AAL',
-    'SDP': 'LID',
-    'SEA': 'TAK',
-    'SFG': 'MPD',
-    'STL': 'MBT',
-    'TBR': 'SAR',
-    'TEX': 'SUP',
-    'TOR': 'RBA'
-}
-
 stadium_image = {
     'ARI': 'https://i.imgur.com/ZzNi54t.png',
     'ATL': 'https://i.imgur.com/prvTr0u.png',
