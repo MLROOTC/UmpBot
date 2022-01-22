@@ -238,17 +238,27 @@ class Player(commands.Cog):
     @commands.command(brief='MiLR Standings')
     async def milrstandings(self, ctx):
         sheet_id = sheets.get_sheet_id(config_ini['URLs']['milr_roster'])
-        il_standings = sheets.read_sheet(sheet_id, assets.calc_cell['il_standings'])
-        pcl_standings = sheets.read_sheet(sheet_id, assets.calc_cell['pcl_standings'])
-        il = 'Team                     W  L GB'
-        pcl = 'Team                     W  L GB'
-        for team in il_standings:
-            il += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
-        for team in pcl_standings:
-            pcl += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        dia_standings = sheets.read_sheet(sheet_id, assets.calc_cell['dia_standings'])
+        ind_standings = sheets.read_sheet(sheet_id, assets.calc_cell['ind_standings'])
+        twi_standings = sheets.read_sheet(sheet_id, assets.calc_cell['twi_standings'])
+        wnd_standings = sheets.read_sheet(sheet_id, assets.calc_cell['wnd_standings'])
+        dia = 'Team                     W  L GB'
+        ind = 'Team                     W  L GB'
+        twi = 'Team                     W  L GB'
+        wnd = 'Team                     W  L GB'
+        for team in dia_standings:
+            dia += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        for team in ind_standings:
+            ind += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        for team in twi_standings:
+            twi += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
+        for team in wnd_standings:
+            wnd += '\n%-23s %2s %2s %2s' % (team[0][:23], team[1], team[2], team[3])
         embed = discord.Embed(title='MiLR Standings')
-        embed.add_field(name='International League', value='```%s```' % il, inline=False)
-        embed.add_field(name='Pacific Coast League', value='```%s```' % pcl, inline=False)
+        embed.add_field(name='Diamond Division', value=f'```{dia}```', inline=False)
+        embed.add_field(name='Independence Division', value=f'```{ind}```', inline=False)
+        embed.add_field(name='Twisted Division', value=f'```{twi}```', inline=False)
+        embed.add_field(name='Windflower Division', value=f'```{wnd}```', inline=False)
         embed.set_footer(text='x - Clinched Playoffs\ny - Clinched Bye\ne - Eliminated')
         await ctx.send(embed=embed)
 
