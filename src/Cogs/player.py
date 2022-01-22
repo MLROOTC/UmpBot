@@ -176,8 +176,8 @@ class Player(commands.Cog):
         else:
             await ctx.send('Couldn\'t find any stats for this player.')
 
-    @commands.command(brief='FCB Pitching Stats',
-                      description='Displays pitching stats for MiLR')
+    @commands.command(brief='GIB Pitching Stats',
+                      description='Displays pitching stats for GIB')
     async def gpstats(self, ctx, *, playername=None):
         if playername:
             player = await get_player(ctx, playername)
@@ -197,8 +197,8 @@ class Player(commands.Cog):
         else:
             await ctx.send('Couldn\'t find any stats for this player.')
 
-    @commands.command(brief='FCB Batting Stats',
-                      description='Displays batting stats for MLR')
+    @commands.command(brief='GIB Batting Stats',
+                      description='Displays batting stats for GIB')
     async def gstats(self, ctx, *, playername=None):
         if playername:
             player = await get_player(ctx, playername)
