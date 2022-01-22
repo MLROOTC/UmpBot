@@ -1125,7 +1125,7 @@ def format_pa_log(league, season, session, game_id, inning, play_number, outs, o
                   result_all_neutral, rbi, run, pr3B, pr2B, pr1B, prAB, after_inning, after_obc, after_outs,
                   after_away_score, after_home_score):
     league = league.lower()
-    if 'T' in inning:
+    if 'B' in inning:
         pitcher_team = away_team
         hitter_team = home_team
     else:
