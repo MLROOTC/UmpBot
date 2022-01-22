@@ -873,5 +873,8 @@ def scoreboard(league, season, session):
                 scoreboard_txt += '%3s %2s   %s   %s   %s out\r\n\r\n```' % (home_team, home_score, b3, b1, outs)
             scoreboard_txt += ''
         scoreboard_txt += ''
-        return scoreboard_txt
+        if scoreboard_txt:
+            return scoreboard_txt
+        else:
+            return '--'
     return '--'
