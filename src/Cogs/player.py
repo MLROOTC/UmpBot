@@ -89,7 +89,7 @@ class Player(commands.Cog):
         claiming_player = await get_player(ctx, player_name)
         if not claiming_player:
             return
-        if claiming_player[14]:
+        if claiming_player[12]:
             await ctx.send('Player has already been claimed.')
             return
         claiming_account = db.fetch_data('''SELECT * FROM playerData WHERE discordID = %s''', (ctx.author.id,))
