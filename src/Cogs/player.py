@@ -810,7 +810,7 @@ def team_embed(team_abbr):
             embed.add_field(name='Captains', value='\n'.join([captain1, captain2, captain3]), inline=True)
         if committee1 or committee2:
             embed.add_field(name='Committee', value='\n'.join([committee1, committee2]), inline=True)
-        if committee1 or committee2:
+        if awards1 or awards2:
             embed.add_field(name='Awards', value='\n'.join([awards1, awards2]), inline=True)
         if milr_team:
             embed.add_field(name='MiLR Team', value=milr_team)
@@ -836,9 +836,20 @@ def team_embed(team_abbr):
 
     if park:
         park = park[0]
-        park_factors = '```HR: %s\n3B: %s\n2B: %s\n1B: %s\nBB: %s```' % (park[2], park[3], park[4], park[5], park[6])
-        embed.add_field(name='Park', value=park[1], inline=True)
-        embed.add_field(name='Park Factors', value=park_factors, inline=False)
+        # park_factors = '```HR: %s\n3B: %s\n2B: %s\n1B: %s\nBB: %s```' % (park[2], park[3], park[4], park[5], park[6])
+        park_factors = f'{park[2]:.3f}/{park[3]:.3f}/{park[4]:.3f}/{park[5]:.3f}/{park[6]:.3f}'
+        embed.add_field(name='Park', value=f'{park[1]} ({park_factors})', inline=True)
+        # embed.add_field(name='Park Factors', value=park_factors, inline=False)
+    if team[5] == 'mlr':
+        sql = '''SELECT playerName, batType, pitchType, pitchBonus, hand, priPos, secPos, tertPos FROM playerData WHERE Team=%s AND status=1 ORDER BY posValue'''
+        players = db.fetch_data(sql, (team_abbr,))
+        roster = 'Player             Position H BT  PT\n'
+        for p in players:
+            roster += f'{p[0][:18]:<18} {p[5]:<2} {p[6]:<2} {p[7]:<2} {p[4][0]} {p[1]:<2} {p[2]:<2}'
+            if p[3]:
+                roster += f'({p[3]})'
+            roster += '\n'
+        embed.add_field(name='Roster', value=f'```{roster}```', inline=False)
 
     return embed
 
