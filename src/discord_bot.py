@@ -10,6 +10,7 @@ from googleapiclient.errors import HttpError
 from asyncio import TimeoutError
 
 from src.Cogs import player
+import subreddit_updater as subreddit
 
 intents = discord.Intents.default()
 intents.members = True
@@ -38,6 +39,7 @@ async def on_ready():
         if filename.endswith('.py'):
             bot.load_extension('Cogs.%s' % filename[:-3])
     scoreboard.start()
+    reddit_scoreboard.start()
 
 
 @bot.command(brief='Otter plz',
@@ -74,6 +76,11 @@ async def scoreboard():
     embed.add_field(name='MiLR Scoreboard', value=milr_scoreboard)
     embed.set_footer(text='Last updated %s' % datetime.datetime.now())
     await scoreboard_msg.edit(content=None, embed=embed)
+
+
+@tasks.loop(seconds=60)
+async def reddit_scoreboard():
+    await subreddit.scoreboard()
 
 
 @bot.event

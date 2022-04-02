@@ -45,6 +45,10 @@ async def get_comment(comment_url):
     return await reddit.comment(url=comment_url)
 
 
+async def get_thread(thread_id):
+    return await reddit.submission(thread_id)
+
+
 async def get_thread_url(thread_url):
     return await reddit.submission(Submission.id_from_url(thread_url))
 

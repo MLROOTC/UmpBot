@@ -12,6 +12,7 @@ obc_img = {
 calc_cell = {
     'al_east': 'Standings!A14:D18',
     'al_central': 'Standings!E14:H18',
+    'al_standings': 'Standings!A14:L18',
     'al_west': 'Standings!I14:L18',
     'al_wildcard': 'Standings!S3:V14',
     'at_bat': 'Calculator!B6:F6',
@@ -44,6 +45,7 @@ calc_cell = {
     'next_up': 'Box Score!C8',
     'nl_east': 'Standings!A4:D8',
     'nl_central': 'Standings!E4:H8',
+    'nl_standings': 'Standings!A4:L8',
     'nl_west': 'Standings!I4:L8',
     'nl_wildcard': 'Standings!N3:Q14',
     'pitch': 'Calculator!E6',
@@ -57,6 +59,7 @@ calc_cell = {
     'swing': 'Calculator!C6',
     'twi_standings': 'Standings!A12:D15',
     'ump_list': 'Calculator!F24:F26',
+    'wildcard': 'Standings!N3:V14',
     'wnd_standings': 'Standings!F12:I15'
 }
 
@@ -130,4 +133,15 @@ stadium_image = {
     'TBR': 'https://i.imgur.com/q2sxEwi.png',
     'TEX': 'https://i.imgur.com/usXdKAY.png',
     'TOR': 'https://i.imgur.com/Nj3ncm5.png'
+}
+
+obc_icon = {
+    0: '○ ^○ ○',
+    1: '○ ^○ ●',
+    2: '○ ^● ○',
+    3: '● ^○ ○',
+    4: '○ ^● ●',
+    5: '● ^○ ●',
+    6: '● ^● ○',
+    7: '● ^● ●',
 }
