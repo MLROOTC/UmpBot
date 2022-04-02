@@ -148,6 +148,12 @@ class Admin(commands.Cog):
         await ctx.send(file=file)
         os.remove('draft.jpg')
 
+    @commands.has_role(ump_admin)
+    @commands.command()
+    async def exit(self, ctx):
+        await ctx.send("Bye")
+        exit()
+
     @commands.command(brief='Gets discord IDs for players')
     @commands.has_role(ump_admin)
     async def get_discord_ids(self, ctx):

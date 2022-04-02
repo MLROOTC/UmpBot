@@ -176,57 +176,58 @@ class Ump(commands.Cog):
                     game_data = db.fetch_data(sql, (sheet_id,))
                     if game_data:
                         league, season, session, gameID, away_team, home_team = game_data[0]
-                        game_log = sheets.read_sheet(sheet_id, assets.calc_cell['game_log'])
-                        for i in range(len(game_log)):
-                            pa = game_log[i]
-                            if pa[0] != 'Before Swing' and pa[0] != 'IP Outs':
-                                if len(pa) > 6:
-                                    if pa[6] != '':
-                                        inning = pa[1]
-                                        playNumber = i - 1
-                                        outs = int(pa[2])
-                                        obc = int(pa[3])
-                                        awayScore = int(pa[5])
-                                        homeScore = int(pa[4])
-                                        pitcherName = pa[8]
-                                        hitterName = pa[6]
-                                        pitch = pa[9]
-                                        swing = pa[7]
-                                        diff = pa[11]
-                                        exactResult = pa[88]
-                                        resultAtNeutral = pa[89]
-                                        resultAllNeutral = pa[90]
-                                        rbi = int(pa[13])
-                                        run = int(pa[14])
-                                        pr3B = None
-                                        pr2B = None
-                                        pr1B = None
-                                        prAB = None
-                                        if len(pa) >= 98:
-                                            pr3B = pa[97]
-                                        if len(pa) >= 99:
-                                            pr2B = pa[98]
-                                        if len(pa) >= 100:
-                                            pr1B = pa[99]
-                                        if len(pa) >= 101:
-                                            prAB = pa[100]
-                                        inning_after = pa[16]
-                                        obc_after = int(pa[18])
-                                        outs_after = int(pa[17])
-                                        away_score_after = int(pa[20])
-                                        home_score_after = int(pa[19])
-                                        pa_id = get_pa_id(league, season, session, gameID, playNumber)
-                                        sql = '''SELECT * FROM PALogs WHERE paID=%s'''
-                                        pa_in_db = db.fetch_data(sql, (pa_id,))
-                                        pa_in_sheet = format_pa_log(league, season, session, gameID, inning, playNumber, outs, obc, awayScore, homeScore, away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult, exactResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB, inning_after, obc_after, outs_after, away_score_after, home_score_after)
-                                        if not pa_in_db:
-                                            sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
-                                            db.update_database(sql, pa_in_sheet)
-                                        else:
-                                            pa_in_db = pa_in_db[0]
-                                            if pa_in_db != pa_in_sheet:
-                                                sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
-                                                db.update_database(sql, (pa_in_sheet + (pa_id,)))
+                        if league != 'SCRIM':
+                            game_log = sheets.read_sheet(sheet_id, assets.calc_cell['game_log'])
+                            for i in range(len(game_log)):
+                                pa = game_log[i]
+                                if pa[0] != 'Before Swing' and pa[0] != 'IP Outs':
+                                    if len(pa) > 6:
+                                        if pa[6] != '':
+                                            inning = pa[1]
+                                            playNumber = i - 1
+                                            outs = int(pa[2])
+                                            obc = int(pa[3])
+                                            awayScore = int(pa[5])
+                                            homeScore = int(pa[4])
+                                            pitcherName = pa[8]
+                                            hitterName = pa[6]
+                                            pitch = pa[9]
+                                            swing = pa[7]
+                                            diff = pa[11]
+                                            exactResult = pa[88]
+                                            resultAtNeutral = pa[89]
+                                            resultAllNeutral = pa[90]
+                                            rbi = int(pa[13])
+                                            run = int(pa[14])
+                                            pr3B = None
+                                            pr2B = None
+                                            pr1B = None
+                                            prAB = None
+                                            if len(pa) >= 98:
+                                                pr3B = pa[97]
+                                            if len(pa) >= 99:
+                                                pr2B = pa[98]
+                                            if len(pa) >= 100:
+                                                pr1B = pa[99]
+                                            if len(pa) >= 101:
+                                                prAB = pa[100]
+                                            inning_after = pa[16]
+                                            obc_after = int(pa[18])
+                                            outs_after = int(pa[17])
+                                            away_score_after = int(pa[20])
+                                            home_score_after = int(pa[19])
+                                            pa_id = get_pa_id(league, season, session, gameID, playNumber)
+                                            sql = '''SELECT * FROM PALogs WHERE paID=%s'''
+                                            pa_in_db = db.fetch_data(sql, (pa_id,))
+                                            pa_in_sheet = format_pa_log(league, season, session, gameID, inning, playNumber, outs, obc, awayScore, homeScore, away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult, exactResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB, inning_after, obc_after, outs_after, away_score_after, home_score_after)
+                                            if not pa_in_db:
+                                                sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+                                                db.update_database(sql, pa_in_sheet)
+                                            else:
+                                                pa_in_db = pa_in_db[0]
+                                                if pa_in_db != pa_in_sheet:
+                                                    sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
+                                                    db.update_database(sql, (pa_in_sheet + (pa_id,)))
                     starting_pitchers = sheets.read_sheet(sheet_id, assets.calc_cell['starting_pitchers'])
                     sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
                     winning_pitcher_id = db.fetch_data(sql, ('%' + winning_pitcher + '%',))
@@ -447,10 +448,14 @@ class Ump(commands.Cog):
                     home_team = home_team.title()
                     away_team = away_team.replace('\'S', '\'s')
                     home_team = home_team.replace('\'S', '\'s')
-
+                    sql = '''SELECT league FROM gameData WHERE sheetID=%s'''
+                    game_db = db.fetch_data(sql, (sheet_id,))
                     milr = game_data[5]
                     thread_title = ''
-                    if milr == 'TRUE':
+                    if game_db[0][0] == 'SCRIM':
+                        thread_title += '[SCRIM'
+                        league = 'SCRIM'
+                    elif milr == 'TRUE':
                         thread_title += '[MiLR'
                         league = 'MILR'
                     elif milr == 'FALSE':
@@ -473,25 +478,32 @@ class Ump(commands.Cog):
                     sql = '''UPDATE umpData SET gameThread=%s WHERE sheetID = %s'''
                     db.update_database(sql, (thread.url, sheet_id))
                     start_game_command = '-startgame'
-                    away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
-                    away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))
+                    if game_data[1]:
+                        away_team = game_data[1]
+                    else:
+                        away_team = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])
+                        away_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (away_team[0][0],))[0][0]
                     if len(away_team) > 0:
                         start_game_command += ' %s' % away_team[0]
 
-                    home_team = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])
-                    home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (home_team[0][0],))
+                    if game_data[4]:
+                        home_team = game_data[4]
+                    else:
+                        home_team = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])
+                        home_team = db.fetch_data('''SELECT abb FROM teamData WHERE name = %s''', (home_team[0][0],))[0][0]
                     if len(home_team) > 0:
                         start_game_command += ' %s' % home_team[0]
                     start_game_command += ' %s' % thread.url
                     sql = '''UPDATE gameData SET threadURL=%s, awayTeam=%s, homeTeam=%s WHERE sheetID=%s'''
-                    update_game_log = (thread.url, away_team[0][0], home_team[0][0], sheet_id)
+                    update_game_log = (thread.url, away_team, home_team, sheet_id)
                     db.update_database(sql, update_game_log)
-                    sql = '''SELECT league, season, session, awayTeam, homeTeam, gameID, sheetID, threadURL, umpires FROM gameData WHERE sheetID=%s'''
-                    sheet_export = db.fetch_data(sql, (sheet_id,))
-                    if sheet_export:
-                        sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'), assets.calc_cell['game_data_import'], sheet_export[0])
-                    await ctx.send('Game thread set. Play ball!')
-                    await ctx.send(start_game_command)
+                    if league != 'SCRIM':
+                        sql = '''SELECT league, season, session, awayTeam, homeTeam, gameID, sheetID, threadURL, umpires FROM gameData WHERE sheetID=%s'''
+                        sheet_export = db.fetch_data(sql, (sheet_id,))
+                        if sheet_export:
+                            sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'), assets.calc_cell['game_data_import'], sheet_export[0])
+                        await ctx.send('Game thread set. Play ball!')
+                        await ctx.send(start_game_command)
                 else:
                     await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
                     await ctx.message.add_reaction('⚠')
@@ -572,7 +584,7 @@ class Ump(commands.Cog):
 
             away_team_name = sheets.read_sheet(sheet_id, assets.calc_cell['away_team'])[0][0]
             home_team_name = sheets.read_sheet(sheet_id, assets.calc_cell['home_team'])[0][0]
-
+            game_data = db.fetch_data('''SELECT league, awayTeam, homeTeam FROM gameData WHERE sheetID=%s''', (sheet_id,))
             away_team = db.fetch_data('''SELECT * FROM teamData WHERE name = %s''', (away_team_name,))
             if len(away_team) > 0:
                 away_team = away_team[0]
@@ -616,7 +628,8 @@ class Ump(commands.Cog):
             reaction, user = await self.bot.wait_for('reaction_add', timeout=self.timeout, check=check)
             if reaction.emoji == '\N{baseball}':
                 await prompt_msg.edit(content='Resulting at bat, please wait sheets API can be slow...')
-                log_result(sheet_id, away_team[1], home_team[1])
+                if game_data[0][0] != 'SCRIM':
+                    log_result(sheet_id, away_team[1], home_team[1])
 
                 if await commit_at_bat(ctx, sheet_id):
                     await ctx.send('Result submitted.')
@@ -725,21 +738,18 @@ class Ump(commands.Cog):
                 sql = '''SELECT league, season, session, gameID FROM gameData WHERE sheetID=%s'''
                 game_data = db.fetch_data(sql, (sheet_id,))
                 if game_data:
-                    game_data = game_data[0]
-                    pa_id = get_pa_id(game_data[0], game_data[1], game_data[2], game_data[3], play_number)
-                    sql = '''DELETE FROM PALogs WHERE paID=%s'''
-                    db.update_database(sql, (pa_id,))
-                    await ctx.send('Play removed from database, removing from ump helper sheet...')
+                    if game_data[0][0] != 'SCRIM':
+                        game_data = game_data[0]
+                        pa_id = get_pa_id(game_data[0], game_data[1], game_data[2], game_data[3], play_number)
+                        sql = '''DELETE FROM PALogs WHERE paID=%s'''
+                        db.update_database(sql, (pa_id,))
+                        await ctx.send('Play removed from database, removing from ump helper sheet...')
                 sheets.update_sheet(sheet_id, 'Game Log!G%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!H%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!I%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!J%s' % index, '', lazy=True)
                 sheets.update_sheet(sheet_id, 'Game Log!K%s' % index, '', lazy=True)
                 check_game_log = sheets.read_sheet(sheet_id, assets.calc_cell['game_log'])
-                if check_game_log[-1][6] == '':
-                    await rollback_msg.add_reaction('✅')
-                else:
-                    await ctx.send('Something went wrong, please check the sheet for errors.')
             elif reaction.emoji == '👎':
                 await rollback_msg.add_reaction('❌')
 
