@@ -64,7 +64,7 @@ class Doam(commands.Cog):
                 await doam_channel.send(f'{team1_hrs}/{i+1}')
                 await pitcher2.send(f'{team1_hrs}/{i+1}')
         if team1_hrs == team2_hrs:
-            await doam_channel.send(f'**ITS TIME FOR SUDDEN DEATH!!**')
+            await doam_channel.send(f'**ITS TIME FOR SUDDEN DOAM!!**')
             while team1_hrs == team2_hrs:
                 rounds += 1
                 await doam_channel.send(f'**Round {rounds}**')
