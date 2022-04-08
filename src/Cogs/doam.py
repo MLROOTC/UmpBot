@@ -7,7 +7,6 @@ config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 doam_channel_id = int(config_ini['Doam']['doam_channel_id'])
 doam_admin_role = int(config_ini['Doam']['doam_admin_role'])
-doam_fans_role = int(config_ini['Doam']['doam_fans_role'])
 
 
 class Doam(commands.Cog):
@@ -22,25 +21,26 @@ class Doam(commands.Cog):
         doam_channel = self.bot.get_channel(doam_channel_id)
 
         def get_player(msg):
+            if msg.content == 'STOP':
+                raise Exception('doam cancelled.')
             return msg.author == ctx.author and msg.channel == doam_channel and msg.mentions
 
-        await doam_channel.send('**Team 1** (pitching first) \nPing the pitcher')
+        await doam_channel.send('**HOME TEAM** (pitching first) \nPing the pitcher or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         pitcher1 = player.mentions[0]
 
-        await doam_channel.send('**Team 1** (pitching first) \nPing the batter')
+        await doam_channel.send('**HOME TEAM** (pitching first) \nPing the batter or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         batter1 = player.mentions[0]
 
-        await doam_channel.send('**Team 2** (batting first) \nPing the pitcher')
+        await doam_channel.send('**AWAY TEAM** (batting first) \nPing the pitcher or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         pitcher2 = player.mentions[0]
 
-        await doam_channel.send('**Team 2** (batting first) \nPing the batter')
+        await doam_channel.send('**AWAY TEAM** (batting first) \nPing the batter or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         batter2 = player.mentions[0]
 
-        await doam_channel.send(f'<@&{doam_fans_role}> ITS DOAM TIME!')
         team1_hrs = 0
         team2_hrs = 0
         rounds = 10
@@ -98,6 +98,7 @@ async def doamtime(bot, pitcher, batter):
         return msg.author == pitcher and msg.guild is None and msg.content.isnumeric() and int(msg.content) > 0 and int(msg.content) <= 1000
 
     pitch = await bot.wait_for('message', check=wait_for_pitch)
+    await pitch.add_reaction('👍')
     pitch = int(pitch.content)
 
     # Get Swing
@@ -108,6 +109,7 @@ async def doamtime(bot, pitcher, batter):
         return msg.author == batter and msg.channel == doam_channel and msg.content.isnumeric() and int(msg.content) > 0 and int(msg.content) <= 1000
 
     swing = await bot.wait_for('message', check=wait_for_swing)
+    await swing.add_reaction('⚾')
     swing = int(swing.content)
 
     diff = p.calculate_diff(pitch, swing)
