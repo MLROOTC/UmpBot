@@ -21,6 +21,8 @@ class Doam(commands.Cog):
         doam_channel = self.bot.get_channel(doam_channel_id)
 
         def get_player(msg):
+            if msg.content == 'STOP':
+                raise Exception('doam cancelled.')
             return msg.author == ctx.author and msg.channel == doam_channel and msg.mentions
 
         await doam_channel.send('**HOME TEAM** (pitching first) \nPing the pitcher or reply STOP to cancel')
