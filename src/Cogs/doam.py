@@ -23,19 +23,19 @@ class Doam(commands.Cog):
         def get_player(msg):
             return msg.author == ctx.author and msg.channel == doam_channel and msg.mentions
 
-        await doam_channel.send('**Team 1** (pitching first) \nPing the pitcher')
+        await doam_channel.send('**HOME TEAM** (pitching first) \nPing the pitcher or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         pitcher1 = player.mentions[0]
 
-        await doam_channel.send('**Team 1** (pitching first) \nPing the batter')
+        await doam_channel.send('**HOME TEAM** (pitching first) \nPing the batter or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         batter1 = player.mentions[0]
 
-        await doam_channel.send('**Team 2** (batting first) \nPing the pitcher')
+        await doam_channel.send('**AWAY TEAM** (batting first) \nPing the pitcher or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         pitcher2 = player.mentions[0]
 
-        await doam_channel.send('**Team 2** (batting first) \nPing the batter')
+        await doam_channel.send('**AWAY TEAM** (batting first) \nPing the batter or reply STOP to cancel')
         player = await self.bot.wait_for('message', check=get_player)
         batter2 = player.mentions[0]
 
