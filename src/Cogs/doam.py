@@ -98,6 +98,7 @@ async def doamtime(bot, pitcher, batter):
         return msg.author == pitcher and msg.guild is None and msg.content.isnumeric() and int(msg.content) > 0 and int(msg.content) <= 1000
 
     pitch = await bot.wait_for('message', check=wait_for_pitch)
+    await pitch.add_reaction('👍')
     pitch = int(pitch.content)
 
     # Get Swing
@@ -108,6 +109,7 @@ async def doamtime(bot, pitcher, batter):
         return msg.author == batter and msg.channel == doam_channel and msg.content.isnumeric() and int(msg.content) > 0 and int(msg.content) <= 1000
 
     swing = await bot.wait_for('message', check=wait_for_swing)
+    await swing.add_reaction('⚾')
     swing = int(swing.content)
 
     diff = p.calculate_diff(pitch, swing)
