@@ -7,7 +7,6 @@ config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 doam_channel_id = int(config_ini['Doam']['doam_channel_id'])
 doam_admin_role = int(config_ini['Doam']['doam_admin_role'])
-doam_fans_role = int(config_ini['Doam']['doam_fans_role'])
 
 
 class Doam(commands.Cog):
@@ -40,7 +39,6 @@ class Doam(commands.Cog):
         player = await self.bot.wait_for('message', check=get_player)
         batter2 = player.mentions[0]
 
-        await doam_channel.send(f'<@&{doam_fans_role}> ITS DOAM TIME!')
         team1_hrs = 0
         team2_hrs = 0
         rounds = 10
