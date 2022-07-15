@@ -21,6 +21,7 @@ class Ump(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.ab_ping_channel = int(config_ini['Channels']['ab_bat_pings_channel'])
+        self.fcb_ab_ping_channel = int(config_ini['Channels']['fcb_ab_bat_pings_channel'])
         self.subreddit_name = config_ini['Reddit']['subreddit_name']
         self.master_ump_sheet = config_ini['Database']['master_ump_sheet']
         self.main_guild_id = config_ini['Discord']['main_guild_id']
@@ -397,9 +398,13 @@ class Ump(commands.Cog):
                     return
             ab_ping = raw_text(sheets.read_sheet(sheet_id, assets.calc_cell['discord_ping']))
             if discord_ping:
+                league = db.fetch_data('SELECT league FROM gameData WHERE sheetID=%s', (sheet_id,))
                 ab_ping += '%s is up to bat!' % discord_ping
                 ab_ping += ' No need to ping your umps when you swing, we have bots for that.\n%s' % config[8]
-                await at_bat_ping(self.bot, ab_ping, self.ab_ping_channel)
+                if league[0][0] == 'FCB':
+                    await at_bat_ping(self.bot, ab_ping, self.fcb_ab_ping_channel)
+                else:
+                    await at_bat_ping(self.bot, ab_ping, self.ab_ping_channel)
                 await ctx.send('Discord ping sent in main.')
             elif not discord_name:
                 await ctx.send('Discord not on file, no ping necessary.')
@@ -499,11 +504,13 @@ class Ump(commands.Cog):
                     db.update_database(sql, update_game_log)
                     if league != 'SCRIM':
                         sql = '''SELECT league, season, session, awayTeam, homeTeam, gameID, sheetID, threadURL, umpires FROM gameData WHERE sheetID=%s'''
-                        sheet_export = db.fetch_data(sql, (sheet_id,))
-                        if sheet_export:
-                            sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'), assets.calc_cell['game_data_import'], sheet_export[0])
+                        if league != 'FCB':
+                            sheet_export = db.fetch_data(sql, (sheet_id,))
+                            if sheet_export:
+                                sheets.append_sheet(read_config(bot_config, 'URLs', 'backend_sheet_id'), assets.calc_cell['game_data_import'], sheet_export[0])
                         await ctx.send('Game thread set. Play ball!')
-                        await ctx.send(start_game_command)
+                        if league != 'FCB':
+                            await ctx.send(start_game_command)
                 else:
                     await ctx.message.remove_reaction(loading_emote, ctx.bot.user)
                     await ctx.message.add_reaction('⚠')
@@ -979,12 +986,9 @@ def log_result(sheet_id, away_team, home_team):
     if play_number:
         play_number = play_number[0][0]
         play_number = int(play_number)
-
+    league = db.fetch_data('SELECT LEAGUE FROM gameData WHERE sheetID=%s', (sheet_id,))
     if league:
-        if league[0][0] == 'TRUE':
-            league = 'milr'
-        else:
-            league = 'mlr'
+        league = league[0][0].lower()
 
     # Get game ID from database
     sql = '''SELECT gameID, season, session from gameData where sheetID = %s'''
