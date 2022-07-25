@@ -619,7 +619,7 @@ def player_embed(player):
         if team:
             team = team[0]
             embed_color = discord.Color(value=int(team[2], 16))
-            embed = discord.Embed(title=player_name, color=embed_color)
+            embed = discord.Embed(title=player_name, color=embed_color, url='https://swing420.com/player/%s' % player_id)
             embed.set_thumbnail(url=team[3])
         else:
             embed = discord.Embed(title=player_name)
@@ -688,7 +688,7 @@ def pstats_embed(player, league):
                         team = team[0]
                         embed_color = discord.Color(value=int(team[2], 16))
                         embed = discord.Embed(color=embed_color, title=title, description=description,
-                                              url='https://www.reddit.com%s' % player[10])
+                                              url='https://swing420.com/player/%s' % player[0])
                         embed.set_thumbnail(url=team[3])
                 else:
                     embed = discord.Embed(title=title, description=description)
@@ -755,7 +755,7 @@ def stats_embed(player, league):
                         team = team[0]
                         embed_color = discord.Color(value=int(team[2], 16))
                         embed = discord.Embed(color=embed_color, title=title, description=description,
-                                              url='https://www.reddit.com%s' % player[10])
+                                              url='https://swing420.com/player/%s' % player[0])
                         embed.set_thumbnail(url=team[3])
                 else:
                     embed = discord.Embed(title=title, description=description)

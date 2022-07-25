@@ -220,61 +220,61 @@ class Admin(commands.Cog):
     async def sync_database(self, ctx):
         await ctx.message.add_reaction(loading_emote)
         # Update player appointments...
-        mlr_roster = sheets.get_sheet_id(read_config(config_ini, 'URLs', 'mlr_roster'))
-        mlr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['mlr_appointments'])
-        milr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['milr_appointments'])
-        for team in mlr_appointments:
-            cogm = ''
-            captain1 = ''
-            captain2 = ''
-            captain3 = ''
-            committee1 = ''
-            committee2 = ''
-            awards1 = ''
-            awards2 = ''
-            abb = team[0]
-            gm = team[1]
-            if len(team) >= 3:
-                cogm_check = sheets.read_sheet(mlr_roster, '%s!I2' % abb)
-                if cogm_check[0][0] == 'Co-GM:':
-                    cogm = team[2]
-                else:
-                    captain1 = team[2]
-            if len(team) >= 4:
-                captain2 = team[3]
-            if len(team) >= 5:
-                captain3 = team[4]
-            if len(team) >= 6:
-                committee1 = team[5]
-            if len(team) >= 7:
-                committee2 = team[6]
-            if len(team) >= 8:
-                awards1 = team[7]
-            if len(team) >= 9:
-                awards2 = team[8]
-            team_data = (gm, cogm, captain1, captain2, captain3, committee1, committee2, awards1, awards2, abb)
-            sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s, committee1=%s, committee2=%s, awards1=%s, awards2=%s WHERE abb=%s'''
-            db.update_database(sql, team_data)
-        for team in milr_appointments:
-            gm = ''
-            cogm = ''
-            captain1 = ''
-            captain2 = ''
-            captain3 = ''
-            abb = team[0]
-            if len(team) >= 2:
-                gm = team[1]
-            if len(team) >= 3:
-                cogm = team[2]
-            if len(team) >= 6:
-                captain1 = team[5]
-            if len(team) >= 7:
-                captain2 = team[6]
-            if len(team) >= 8:
-                captain3 = team[7]
-            team_data = (gm, cogm, captain1, captain2, captain3, abb)
-            sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s WHERE abb=%s'''
-            db.update_database(sql, team_data)
+        # mlr_roster = read_config(config_ini, 'URLs', 'backend_sheet_id')
+        # mlr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['mlr_appointments'])
+        # milr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['milr_appointments'])
+        # for team in mlr_appointments:
+        #     cogm = ''
+        #     captain1 = ''
+        #     captain2 = ''
+        #     captain3 = ''
+        #     committee1 = ''
+        #     committee2 = ''
+        #     awards1 = ''
+        #     awards2 = ''
+        #     abb = team[0]
+        #     gm = team[1]
+        #     if len(team) >= 3:
+        #         cogm_check = sheets.read_sheet(mlr_roster, '%s!I2' % abb)
+        #         if cogm_check[0][0] == 'Co-GM:':
+        #             cogm = team[2]
+        #         else:
+        #             captain1 = team[2]
+        #     if len(team) >= 4:
+        #         captain2 = team[3]
+        #     if len(team) >= 5:
+        #         captain3 = team[4]
+        #     if len(team) >= 6:
+        #         committee1 = team[5]
+        #     if len(team) >= 7:
+        #         committee2 = team[6]
+        #     if len(team) >= 8:
+        #         awards1 = team[7]
+        #     if len(team) >= 9:
+        #         awards2 = team[8]
+        #     team_data = (gm, cogm, captain1, captain2, captain3, committee1, committee2, awards1, awards2, abb)
+        #     sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s, committee1=%s, committee2=%s, awards1=%s, awards2=%s WHERE abb=%s'''
+        #     db.update_database(sql, team_data)
+        # for team in milr_appointments:
+        #     gm = ''
+        #     cogm = ''
+        #     captain1 = ''
+        #     captain2 = ''
+        #     captain3 = ''
+        #     abb = team[0]
+        #     if len(team) >= 2:
+        #         gm = team[1]
+        #     if len(team) >= 3:
+        #         cogm = team[2]
+        #     if len(team) >= 6:
+        #         captain1 = team[5]
+        #     if len(team) >= 7:
+        #         captain2 = team[6]
+        #     if len(team) >= 8:
+        #         captain3 = team[7]
+        #     team_data = (gm, cogm, captain1, captain2, captain3, abb)
+        #     sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s WHERE abb=%s'''
+        #     db.update_database(sql, team_data)
 
         # Update Discord Username In the Backend Sheet based on the Discord ID
         sheet_id = read_config(config_ini, 'URLs', 'backend_sheet_id')
