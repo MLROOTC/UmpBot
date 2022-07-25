@@ -619,7 +619,7 @@ def player_embed(player):
         if team:
             team = team[0]
             embed_color = discord.Color(value=int(team[2], 16))
-            embed = discord.Embed(title=player_name, color=embed_color)
+            embed = discord.Embed(title=player_name, color=embed_color, url='https://swing420.com/player/%s' % player_id)
             embed.set_thumbnail(url=team[3])
         else:
             embed = discord.Embed(title=player_name)
@@ -666,6 +666,7 @@ def pstats_embed(player, league):
             dbf = p[77]
             whip = p[70]
             pwar = p[83]
+            auto_bb = p[56]
             title = player[1]
             pitching_type = db.fetch_data('''SELECT name FROM pitchingTypes WHERE type = %s''', (player[4],))
             if pitching_type:
@@ -687,7 +688,7 @@ def pstats_embed(player, league):
                         team = team[0]
                         embed_color = discord.Color(value=int(team[2], 16))
                         embed = discord.Embed(color=embed_color, title=title, description=description,
-                                              url='https://www.reddit.com%s' % player[10])
+                                              url='https://swing420.com/player/%s' % player[0])
                         embed.set_thumbnail(url=team[3])
                 else:
                     embed = discord.Embed(title=title, description=description)
@@ -702,6 +703,7 @@ def pstats_embed(player, league):
             embed.add_field(name='WHIP', value=whip, inline=True)
             embed.add_field(name='DBF', value=dbf, inline=True)
             embed.add_field(name='pWAR', value=pwar, inline=True)
+            embed.add_field(name='Auto BBs', value=auto_bb, inline=True)
             embed.set_footer(text='Stats shown through Session %s' % session)
             return embed
     return None
@@ -728,6 +730,7 @@ def stats_embed(player, league):
             homeruns = p[8]
             runs = p[10]
             rbis = p[11]
+            auto_k = p[13]
             steal_attempts = p[15]
             stolen_bases = p[16]
             avg = p[17]
@@ -752,7 +755,7 @@ def stats_embed(player, league):
                         team = team[0]
                         embed_color = discord.Color(value=int(team[2], 16))
                         embed = discord.Embed(color=embed_color, title=title, description=description,
-                                              url='https://www.reddit.com%s' % player[10])
+                                              url='https://swing420.com/player/%s' % player[0])
                         embed.set_thumbnail(url=team[3])
                 else:
                     embed = discord.Embed(title=title, description=description)
@@ -768,6 +771,7 @@ def stats_embed(player, league):
             embed.add_field(name='RBI', value=rbis, inline=True)
             embed.add_field(name='DPA', value=dpa, inline=True)
             embed.add_field(name='WAR', value=war, inline=True)
+            embed.add_field(name='Auto Ks', value=auto_k, inline=True)
             embed.set_footer(text='Stats shown through Session %s' % session)
             return embed
     return None
@@ -828,6 +832,12 @@ def team_embed(team_abbr):
             embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
         if captain1 or captain2:
             embed.add_field(name='Captains', value='\n'.join([captain1, captain2]), inline=True)
+    elif team[5] == 'fcb':
+        gm = team[7]
+        co_gm = team[8]
+        if gm or co_gm:
+            embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
+
 
     if team[4]:
         embed.add_field(name='Result Webhook', value='Enabled', inline=True)
