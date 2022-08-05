@@ -363,6 +363,9 @@ class Ump(commands.Cog):
                 return
 
             batter_name = sheets.read_sheet(sheet_id, assets.calc_cell['batter_name'])
+            league = db.fetch_data('SELECT league FROM gameData WHERE sheetID = %s', (sheet_id,))
+            if league:
+                league = league[0][0]
             main = self.bot.get_guild(int(self.main_guild_id))
             discord_ping = None
             if batter_name:
@@ -375,9 +378,10 @@ class Ump(commands.Cog):
                         return
                     discord_name = sheets.read_sheet(sheet_id, assets.calc_cell['discord_name'])[0][0]
                     discord_name = discord_name[1:discord_name.index('#') + 5]
-                    discord_user = main.get_member_named(discord_name)
-                    if discord_user:
-                        discord_ping = '%s' % discord_user.mention
+                    if league != 'FCB':
+                        discord_user = main.get_member_named(discord_name)
+                        if discord_user:
+                            discord_ping = '%s' % discord_user.mention
                 elif batter_discord[0][0]:
                     discord_ping = '<@%s>' % batter_discord[0][0]
                 elif batter_discord[0][1]:
