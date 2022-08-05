@@ -131,3 +131,24 @@ stadium_image = {
     'TEX': 'https://i.imgur.com/usXdKAY.png',
     'TOR': 'https://i.imgur.com/Nj3ncm5.png'
 }
+
+main_role_ids = {
+    'Player': 490008203925389344,
+    'GM': 344859708022194176,
+    'MiLR GM': 537383086007255049,
+    'Committee': 496778795328602112,
+    'Draftee': 588923566091665412,
+    'Free Agent': 416390298961313792,
+    'Retired': 782318487305060442,
+    'Awards Association Member': 451733045054275606,
+    'MVP': 798747944962359336,
+    'Pitcher of the Year': 801834040302764064,
+    'GM of the Year': 801834106584956951,
+    'Rookie of the Year': 801834153636266034,
+    'Reliever of the Year': 818978149210521691,
+    'Silver Slugger': 801834215724941383,
+    'Paper Cup Winner': 801834274319368284,
+    'Styrofoam Cup Winner': 801840064803635220
+}
+
+fcb_team_ids = ['PUR', 'ORD', 'MSU', 'MCH', 'HRW', 'PAN']

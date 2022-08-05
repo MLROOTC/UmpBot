@@ -8,6 +8,7 @@ import src.sheets_reader as sheets
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 gm_role_id = int(config_ini['Discord']['gm_role_id'])
+main_server_id = int(config_ini['Discord']['main_guild_id'])
 
 
 class Player(commands.Cog):
@@ -415,6 +416,45 @@ class Player(commands.Cog):
         response += '```'
 
         await ctx.send(response)
+
+    @commands.command(brief='',
+                      description='')
+    async def roleme(self, ctx):
+        role_entitlements = []
+        if ctx.guild.id != main_server_id:
+            await ctx.send('This command only works in main.')
+            return
+        player = db.fetch_data('SELECT playerID, playerName, Team from playerData WHERE discordID=%s', (ctx.author.id,))
+        if player:
+            player_id, player_name, team = player[0]
+            role_entitlements.append(assets.main_role_ids['Player'])
+            if team:
+                if team in assets.fcb_team_ids:
+                    role_entitlements.append(assets.main_role_ids['Draftee'])
+                elif team == '':
+                    role_entitlements.append(assets.main_role_ids['Free Agent'])
+                else:
+                    team_data = db.fetch_data('SELECT gm, cogm, committee1, committee2, awards1, awards2, affiliate, role_id FROM teamData WHERE abb=%s', (team,))
+                    if team_data:
+                        team_data = team_data[0]
+                        team_role = int(team_data[7])
+                        if team_role:
+                            role_entitlements.append(team_role)
+                        if player_name in team_data[0:2]:  # GMs
+                            role_entitlements.append(assets.main_role_ids['GM'])
+                        if player_name in team_data[2:4]:  # Committee
+                            role_entitlements.append(assets.main_role_ids['Committee'])
+                        if player_name in team_data[4:6]:  # Committee
+                            role_entitlements.append(assets.main_role_ids['Awards Association Member'])
+        roles_added = []
+        for role_id in role_entitlements:
+            role = discord.utils.get(ctx.guild.roles, id=role_id)
+            if role and role not in ctx.author.roles:
+                await ctx.author.add_roles(role)
+                roles_added.append(role.name)
+        if roles_added:
+            await ctx.send(f'**Added the following roles:** `{roles_added}`')
+        return
 
     @commands.command(brief='Sends the MLR roster sheet',
                       description='Gives the MiLR roster sheet',
