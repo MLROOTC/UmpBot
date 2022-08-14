@@ -29,6 +29,17 @@ def fetch_data(sql_query, data):
         print(e)
 
 
+def fetch_one(sql_query, data):
+    try:
+        cursor = get_cursor(connection)
+        cursor.execute(sql_query, data)
+        data = cursor.fetchone()
+        connection.commit()
+        return data
+    except mysql.connector.Error as e:
+        print(e)
+
+
 def get_cursor(this_connection):
     try:
         this_connection.ping(reconnect=True, attempts=3, delay=5)

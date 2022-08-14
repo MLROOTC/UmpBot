@@ -4,6 +4,7 @@ import src.db_controller as db
 import src.assets as assets
 import discord
 import src.sheets_reader as sheets
+from src import robo_ump
 
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
@@ -547,6 +548,12 @@ class Player(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
+        # await robo_ump.get_pitch(self.bot, 770, 'SCRIM', 7, 0, 7)
+        # pitch = db.fetch_one('''SELECT pitch, pitch_src FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', ('SCRIM', 7, 0, 7))
+        # await ctx.send(f'Encrypted Pitch: {pitch[0]}')
+        # await ctx.send(f'Decrypted Pitch: {robo_ump.decrypt_pitch("SCRIM", 7, 0, 7)}')
+        # await ctx.send(f'Time: {robo_ump.time_to_pitch("SCRIM", 7, 0, 7)}')
+        await robo_ump.get_swing('https://www.reddit.com/r/OtterHooligan/comments/wm3vct/mlr_71_game_thread_oakland_athletics_at_oakland/ijx133p/')
         return
 
     @commands.command(brief='Ump council form',
