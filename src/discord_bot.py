@@ -76,32 +76,32 @@ async def scoreboard():
     await scoreboard_msg.edit(content=None, embed=embed)
 
 
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, CommandNotFound):
-        return
-    elif isinstance(error, MissingRole):
-        await ctx.send('You don\'t have permission to use that command.')
-    elif isinstance(error, MissingRequiredArgument):
-        await ctx.send('Missing a required argument. Please use .help %s for more information.' % ctx.command)
-    elif isinstance(error, CommandInvokeError):
-        if type(error.original) == HttpError:
-            if 'HttpError 403' in str(error):
-                await ctx.send('[HTTPError 403 Forbidden] - please ensure rslashfakebaseball@gmail.com has permission to edit your ump helper sheet.')
-            elif 'HttpError 404' in str(error):
-                await ctx.send('[HTTPError 404 Not found] - could not find ump helper sheet, please ensure your sheet ID is valid.')
-            elif 'HttpError 500' in str(error):
-                await ctx.send('[HTTPError 500 Internal error] - idk wtf just happened but it didn\'t work. Try whatever you just did again.')
-                error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
-            else:
-                await ctx.send('HTTP Error when accessing sheet: %s' % str(error))
-                error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
-        elif type(error.original) == TimeoutError:
-            await ctx.send('The operation has timed out, please try again.')
-        else:
-            error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
-    else:
-        error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
+# @bot.event
+# async def on_command_error(ctx, error):
+#     if isinstance(error, CommandNotFound):
+#         return
+#     elif isinstance(error, MissingRole):
+#         await ctx.send('You don\'t have permission to use that command.')
+#     elif isinstance(error, MissingRequiredArgument):
+#         await ctx.send('Missing a required argument. Please use .help %s for more information.' % ctx.command)
+#     elif isinstance(error, CommandInvokeError):
+#         if type(error.original) == HttpError:
+#             if 'HttpError 403' in str(error):
+#                 await ctx.send('[HTTPError 403 Forbidden] - please ensure rslashfakebaseball@gmail.com has permission to edit your ump helper sheet.')
+#             elif 'HttpError 404' in str(error):
+#                 await ctx.send('[HTTPError 404 Not found] - could not find ump helper sheet, please ensure your sheet ID is valid.')
+#             elif 'HttpError 500' in str(error):
+#                 await ctx.send('[HTTPError 500 Internal error] - idk wtf just happened but it didn\'t work. Try whatever you just did again.')
+#                 error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
+#             else:
+#                 await ctx.send('HTTP Error when accessing sheet: %s' % str(error))
+#                 error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
+#         elif type(error.original) == TimeoutError:
+#             await ctx.send('The operation has timed out, please try again.')
+#         else:
+#             error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
+#     else:
+#         error_log.send("`[%s|%s]-%s:` %s" % (ctx.guild, ctx.channel, ctx.command, str(error)))
 
 
 bot.run(token)

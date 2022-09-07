@@ -4,7 +4,8 @@ import src.db_controller as db
 import src.assets as assets
 import discord
 import src.sheets_reader as sheets
-from src import robo_ump
+from src.Ump import robo_ump
+from src.Ump import flavor_text_generator
 
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
@@ -553,8 +554,10 @@ class Player(commands.Cog):
         # await ctx.send(f'Encrypted Pitch: {pitch[0]}')
         # await ctx.send(f'Decrypted Pitch: {robo_ump.decrypt_pitch("SCRIM", 7, 0, 7)}')
         # await ctx.send(f'Time: {robo_ump.time_to_pitch("SCRIM", 7, 0, 7)}')
-        await robo_ump.get_swing('https://www.reddit.com/r/OtterHooligan/comments/wm3vct/mlr_71_game_thread_oakland_athletics_at_oakland/ijx133p/')
-        return
+        # await robo_ump.starting_lineup("MLR", 7, 1, 1)
+        # await robo_ump.subs("MLR", 7, 1, 1)
+        # await ctx.send(f'```{robo_ump.get_current_lineup("MLR", 7, 1, 1, False)}```')
+        lineup = flavor_text_generator.get_current_lineup("MLR", 7, 1, 1, 1)
 
     @commands.command(brief='Ump council form',
                       description='Returns a link to the google form for an ump council ruling.')
