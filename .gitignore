@@ -147,3 +147,4 @@ src/MLRdata.db
 .idea/vcs.xml
 .idea/workspace.xml
 src/league.ini
+.DS_Store
