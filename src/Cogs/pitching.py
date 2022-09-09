@@ -9,8 +9,11 @@ class Pitching(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def queue_pitch(self, ctx):
+    async def queue_pitch(self, ctx, pitch: int):
         if not ctx.guild:
+            if not 0 < pitch <= 1000:
+                await ctx.send('Not a valid pitch dum dum.')
+                return
             game, home = await fetch_game(ctx, self.bot)
             sql = f'''SELECT list_{home} FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             current_list = db.fetch_one(sql, game)
@@ -22,6 +25,7 @@ class Pitching(commands.Cog):
             sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             data = (current_list,) + game
             db.update_database(sql, data)
+            await ctx.message.add_reaction('👍')
             current_list = current_list.split()
             print_list = '**Current List:**\n'
             for pitch in current_list:
@@ -120,9 +124,9 @@ async def fetch_game(ctx, bot):
 
             game_number = await bot.wait_for('message', check=wait_for_response)
             game_number = int(game_number.content)
-            if game[4] == pitcher_id[0]:
+            if active_games[game_number-1][4] == pitcher_id[0]:
                 return active_games[game_number-1][0:4], 'home'
-            elif game[5] == pitcher_id[0]:
+            elif active_games[game_number-1][5] == pitcher_id[0]:
                 return active_games[game_number-1][0:4], 'away'
             else:
                 await ctx.send('Are you even pitching right now??')
