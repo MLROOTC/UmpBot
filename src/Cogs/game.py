@@ -72,16 +72,11 @@ class Game(commands.Cog):
             game = games[-1]
             sql = '''SELECT awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
             awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg = db.fetch_one(sql, game)
-            sql = '''SELECT current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_notes = db.fetch_one(sql, game)
+            sql = '''SELECT current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, swing_src, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+            current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, swing_src, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_src = db.fetch_one(sql, game)
             color, logo = db.fetch_one('''SELECT color, logo_url FROM teamData WHERE abb=%s''', (team,))
             current_batter = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (current_batter,))
             current_pitcher = db.fetch_one('''SELECT playerName, hand, pitchType, pitchBonus FROM playerData WHERE playerID=%s''', (current_pitcher,))
-            if complete:
-                winningPitcher = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (winningPitcher,))
-                losingPitcher = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (losingPitcher,))
-                save = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (save,))
-                potg = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (potg,))
 
             b1 = '○'
             b2 = '○'
@@ -117,18 +112,47 @@ class Game(commands.Cog):
             if complete:
                 description += 'Final\n'
             else:
-                description += '   {inning}\n'
+                description += f'   {inning}\n'
             description += f'{homeTeam} {homeScore}   {b1}   {b3}     '
             if not complete:
-                description += '{outs} Out'
+                description += f'{outs} Out'
             embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
             embed.set_thumbnail(url=src.assets.obc_img[str(obc)])
             if complete:
-                embed.add_field(name='Winning Pitcher', value=winningPitcher)
-                embed.add_field(name='Losing Pitcher', value=losingPitcher)
-                embed.add_field(name='Save', value=save)
-                embed.add_field(name='Player of the Game', value=potg)
-            # embed.add_field(name='', value='')
+                embed.add_field(name='Winning Pitcher', value=robo_ump.get_player_name(winningPitcher), inline=True)
+                embed.add_field(name='Losing Pitcher', value=robo_ump.get_player_name(losingPitcher), inline=True)
+                if save:
+                    embed.add_field(name='Save', value=robo_ump.get_player_name(save), inline=True)
+                embed.add_field(name='Player of the Game', value=robo_ump.get_player_name(potg), inline=True)
+            else:
+                if pitch_requested:
+                    if pitch_src:
+                        embed.add_field(name='Pitch', value=f'Pitch submitted at {pitch_submitted}', inline=True)
+                    else:
+                        embed.add_field(name='Pitch', value=f'Pitch request sent at {pitch_requested}', inline=True)
+                else:
+                    embed.add_field(name='Pitch', value='-', inline=True)
+                if swing_requested:
+                    if swing_src:
+                        embed.add_field(name='Swing', value=f'Swing submitted at {swing_submitted}', inline=True)
+                    else:
+                        embed.add_field(name='Swing', value=f'Swing request sent at {swing_requested}', inline=True)
+                else:
+                    embed.add_field(name='Swing', value='-', inline=True)
+                if conditional_pitch_requested:
+                    if conditional_pitch_src:
+                        embed.add_field(name='Conditional Pitch', value='Conditional pitch submitted.', inline=False)
+                    else:
+                        embed.add_field(name='Conditional Pitch', value='Waiting for pitch.', inline=False)
+                else:
+                    embed.add_field(name='Conditional Pitch', value='-', inline=False)
+                if conditional_swing_requested:
+                    if conditional_swing_src:
+                        embed.add_field(name='Conditional Swing', value='Conditional swing submitted.', inline=True)
+                    else:
+                        embed.add_field(name='Conditional Pitch', value='Waiting for swing.', inline=True)
+                else:
+                    embed.add_field(name='Conditional Swing', value='-', inline=True)
             await ctx.send(embed=embed)
         return
 
