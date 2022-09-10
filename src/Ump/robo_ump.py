@@ -2,6 +2,10 @@ import src.assets as assets
 import src.db_controller as db
 import src.reddit_interface as reddit
 import src.sheets_reader as sheets
+import re
+
+
+regex = "[^0-9]"
 
 
 async def get_pitch(bot, player_id, league, season, session, game_id):
@@ -13,10 +17,10 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
 
         pitcher = bot.get_user(discord_id)
         pitch_request_msg = await pitcher.send('Gib pitch')
-        db.update_database('''UPDATE gameData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
+        db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
 
         pitch_msg = await bot.wait_for('message', check=wait_for_pitch)
-        sql = '''UPDATE gameData SET pitch_src=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+        sql = '''UPDATE pitchData SET pitch_src=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
         db.update_database(sql, pitch_msg.id, pitch_msg.id, pitch_msg.created_at, league, season, session, game_id)
         await pitch_msg.add_reaction('👍')
     else:
@@ -25,7 +29,7 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
 
 
 def time_to_pitch(league, season, session, game_id):
-    sql = '''SELECT pitch_requested, pitch_submitted FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+    sql = '''SELECT pitch_requested, pitch_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
     pitch_requested, pitch_submitted = db.fetch_one(sql, (league, season, session, game_id))
     if pitch_requested and pitch_submitted:
         return pitch_submitted - pitch_requested
@@ -33,7 +37,7 @@ def time_to_pitch(league, season, session, game_id):
 
 
 def time_to_swing(league, season, session, game_id):
-    sql = '''SELECT swing_requested, swing_submitted FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+    sql = '''SELECT swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
     swing_requested, swing_submitted = db.fetch_one(sql, (league, season, session, game_id))
     if swing_requested and swing_submitted:
         return swing_requested - swing_submitted
@@ -81,7 +85,6 @@ async def starting_lineup(league, season, session, game_id):
                     data)
                 if not check:
                     db.update_database(sql_insert, data)
-    print('done')
 
 
 async def subs(league, season, session, game_id):
@@ -160,6 +163,13 @@ def get_player_name(player_id):
     return None
 
 
+def get_player_from_discord(discord_id: int):
+    player_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (discord_id,))
+    if player_id:
+        return player_id[0]
+    return None
+
+
 def get_current_lineup(league, season, session, game_id, home):
     sql = '''SELECT player_id, position, batting_order, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND home=%s ORDER BY batting_order'''
     lineup = db.fetch_data(sql, (league, season, session, game_id, home))
@@ -175,3 +185,6 @@ def get_current_lineup(league, season, session, game_id, home):
     return lineup_string
 
 
+async def parse_pitch(ctx, message_id: int):
+    pitch = await ctx.fetch_message(int(message_id))
+    return int(re.sub(regex, '', pitch.content))
