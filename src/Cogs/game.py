@@ -34,56 +34,167 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def conditional_swing(self, ctx):
-        # TODO
-        # GM requests conditional sub
-        # Log time, notes, find batter
-        # Prompt batter for conditional swing
-        # Store it all in the DB
-        return
+    async def conditional_swing(self, ctx, team: str, season: int, session: int, batter: discord.Member, *, notes: str):
+        game = robo_ump.fetch_game_by_team(team, season, session)
+        conditional_batter = robo_ump.get_player_from_discord(batter.id)
+        conditional_swing_requested = ctx.message.created_at
+        data = (conditional_batter, conditional_swing_requested, notes) + game
+        sql = '''UPDATE pitchData SET conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, data)
+        await batter.send(f'{ctx.author.mention} has requested a conditional swing for {team.upper()}. Please reply with a swing number to be used at the following condition: {notes}')
+
+        def wait_for_response(msg):
+            return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
+
+        await ctx.send('Conditional swing request sent to batter.')
+        conditional_swing = await self.bot.wait_for('message', check=wait_for_response)
+        sql = '''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, (conditional_swing.id,) + game)
+        await conditional_swing.add_reaction('👍')
+        await ctx.send('Conditional swing submitted.')
 
     @commands.command(brief='',
                       description='')
-    async def conditional_pitch(self, ctx):
-        # TODO
-        # GM requests conditional sub
-        # Log time, notes, find pitcher
-        # Prompt batter for conditional pitch
-        # Store it all in the DB
-        return
+    async def conditional_pitch(self, ctx, team: str, season: int, session: int, batter: discord.Member, *, notes: str):
+        game = robo_ump.fetch_game_by_team(team, season, session)
+        conditional_pitcher = robo_ump.get_player_from_discord(batter.id)
+        conditional_pitch_requested = ctx.message.created_at
+        data = (conditional_pitcher, conditional_pitch_requested, notes) + game
+        sql = '''UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, data)
+        await batter.send(
+            f'{ctx.author.mention} has requested a conditional pitch for {team.upper()}. Please reply with a pitch number to be used at the following condition: {notes}')
+
+        def wait_for_response(msg):
+            return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
+
+        await ctx.send('Conditional pitch request sent to pitcher.')
+        conditional_pitch = await self.bot.wait_for('message', check=wait_for_response)
+        sql = '''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, (conditional_pitch.id,) + game)
+        await conditional_pitch.add_reaction('👍')
+        await ctx.send('Conditional pitch submitted.')
 
     @commands.command(brief='',
                       description='')
-    async def request_sub(self, ctx, team: str, player_out: str, player_in: str, position: str):
+    async def request_sub(self, ctx, team: str, season: int, session: int, position: str, players: str):
         # TODO
-
-        return
+        players = players.split(':')
+        player_out = players[0]
+        player_in = players[1]
+        if position.upper() not in src.assets.valid_positions:
+            await ctx.send(f'{position.upper()} is not a valid position')
+            return
+        player_out = await robo_ump.get_player(ctx, player_out)
+        player_in = await robo_ump.get_player(ctx, player_in)
+        if player_out and player_in:
+            game = robo_ump.fetch_game_by_team(team, season, session)
+            logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            embed = discord.Embed(title='Substitution Request',
+                                  description=f'{ctx.author.mention} has requested the following substitution.',
+                                  color=discord.Color(value=int(color, 16)))
+            embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+            embed.add_field(name='Player Out', value=player_out[1])
+            embed.add_field(name='Player In', value=player_in[1])
+            embed.add_field(name='Position', value=position)
+            embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
+            await ctx.send(embed=embed)
 
     @commands.command(brief='',
                       description='')
-    async def request_position_change(self, ctx, team: str, player: str, old_pos: str, new_pos: str):
-        # TODO
-        return
+    async def request_position_change(self, ctx, team: str, old_pos: str, new_pos: str, *, player: str,):
+        if old_pos.upper() not in src.assets.valid_positions:
+            await ctx.send(f'{old_pos.upper()} is not a valid position')
+            return
+        if new_pos.upper() not in src.assets.valid_positions:
+            await ctx.send(f'{new_pos.upper()} is not a valid position')
+            return
+        player = await robo_ump.get_player(ctx, player)
+        if player:
+            game = robo_ump.fetch_game_by_team(team, None, None)
+            logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s',game)
+            embed = discord.Embed(title='Position Change Request',
+                                  description=f'{ctx.author.mention} has requested the following position change.',
+                                  color=discord.Color(value=int(color, 16)))
+            embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+            embed.add_field(name='Player', value=f'{player[1]} ({player[7]}/{player[8]}/{player[9]})', inline=False)
+            embed.add_field(name='Old Position', value=old_pos.upper(), inline=True)
+            embed.add_field(name='New Position', value=new_pos.upper(), inline=True)
+            embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
+            await ctx.send(embed=embed)
+        return None
 
     @commands.command(brief='',
                       description='')
-    async def request_auto_k(self, ctx, team: str):
-        # TODO
-        return
+    async def request_auto_k(self, ctx, team: str, season: int = None, session: int = None):
+        game = robo_ump.fetch_game_by_team(team, season, session)
+        thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+        sql = '''SELECT swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes = db.fetch_one(sql, game)
+        logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+
+        embed = discord.Embed(title='Auto K Request', description=f'{ctx.author.mention} has requested an auto K. Please investigate.', color=discord.Color(value=int(color, 16)))
+        embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+        embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})', inline=True)
+        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
+        embed.add_field(name='AB Posted', value=swing_requested, inline=False)
+        conditional_sub = '-'
+        if conditional_swing_requested:
+            conditional_sub = f'**Batter:** {robo_ump.get_player_name(conditional_batter)}\n'
+            conditional_sub += f'**Notes:** {conditional_swing_notes}\n'
+            conditional_sub += f'**Time:** {conditional_swing_requested}\n'
+            if conditional_swing_src:
+                conditional_sub += '**Swing**: On file'
+            else:
+                conditional_sub += '**Swing**: No swing on file'
+        if swing_submitted:
+            embed.add_field(name='Swing Posted', value=swing_submitted, inline=True)
+        else:
+            embed.add_field(name='Swing Posted', value='-', inline=True)
+        embed.add_field(name='Conditional Sub', value=conditional_sub, inline=False)
+        confirmation = await ctx.send(embed=embed)
 
     @commands.command(brief='',
                       description='')
-    async def request_auto_bb(self, ctx, team: str):
-        # TODO
-        # Get current game
-        return
+    async def request_auto_bb(self, ctx, team: str, season: int = None, session: int = None):
+        game = robo_ump.fetch_game_by_team(team, season, session)
+        thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+        sql = '''SELECT pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one(sql, game)
+        logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+
+        embed = discord.Embed(title='Auto BB Request',
+                              description=f'{ctx.author.mention} has requested an auto BB. Please investigate.',
+                              color=discord.Color(value=int(color, 16)))
+        embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+        embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})', inline=True)
+        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})',
+                        inline=True)
+        embed.add_field(name='Pitch Requested', value=pitch_requested, inline=False)
+        conditional_sub = '-'
+        if conditional_pitch_requested:
+            conditional_sub = f'**Pitcher:** {robo_ump.get_player_name(conditional_pitcher)}\n'
+            conditional_sub += f'**Notes:** {conditional_pitch_notes}\n'
+            conditional_sub += f'**Time:** {conditional_pitch_requested}\n'
+            if conditional_pitch_src:
+                conditional_sub += '**Pitch**: On file'
+            else:
+                conditional_sub += '**Pitch**: No swing on file'
+        if pitch_submitted:
+            embed.add_field(name='Pitch Submitted', value=pitch_submitted, inline=True)
+        else:
+            embed.add_field(name='Pitch Submitted', value='-', inline=True)
+        embed.add_field(name='Conditional Sub', value=conditional_sub, inline=False)
+        confirmation = await ctx.send(embed=embed)
 
     @commands.command(brief='',
                       description='')
     async def game_state(self, ctx, team: str, season: int = None, session: int = None):
-        game = fetch_game(team, season, session)
+        game = robo_ump.fetch_game_by_team(team, season, session)
         if game:
-            game = fetch_game(team, season, session)
+            game = robo_ump.fetch_game_by_team(team, season, session)
             sql = '''SELECT awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
             awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg = db.fetch_one(sql, game)
             sql = '''SELECT current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, swing_src, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
@@ -166,30 +277,13 @@ class Game(commands.Cog):
                     if conditional_swing_src:
                         embed.add_field(name='Conditional Swing', value='Conditional swing submitted.', inline=True)
                     else:
-                        embed.add_field(name='Conditional Pitch', value='Waiting for swing.', inline=True)
+                        embed.add_field(name='Conditional Swing', value='Waiting for swing.', inline=True)
                 else:
                     embed.add_field(name='Conditional Swing', value='-', inline=True)
+            embed.add_field(name='View on Reddit', value=f'[Link]({threadURL})', inline=False)
             await ctx.send(embed=embed)
         return
 
 
 async def setup(bot):
     await bot.add_cog(Game(bot))
-
-
-def get_current_game(team: str):
-    # TODO
-    return
-
-
-def fetch_game(team, season, session):
-    if season and session:
-        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
-        data = (team, team, season, session)
-    else:
-        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
-        data = (team, team)
-    games = db.fetch_data(sql, data)
-    if games:
-        return games[-1]
-    return None

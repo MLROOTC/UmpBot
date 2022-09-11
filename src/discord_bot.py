@@ -52,8 +52,8 @@ async def otter(ctx):
              description='Unloads and reloads one of the cogs in the ')
 @commands.has_role(ump_admin)
 async def reload(ctx, extension):
-    bot.unload_extension('Cogs.%s' % extension)
-    bot.load_extension('Cogs.%s' % extension)
+    await bot.unload_extension('Cogs.%s' % extension)
+    await bot.load_extension('Cogs.%s' % extension)
     await ctx.message.add_reaction('✅')
 
 

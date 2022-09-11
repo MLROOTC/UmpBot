@@ -228,3 +228,32 @@ async def fetch_game(ctx, bot):
         await ctx.send("I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
         return None
 
+
+def fetch_game_by_team(team, season, session):
+    if season and session:
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
+        data = (team, team, season, session)
+    else:
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
+        data = (team, team)
+    games = db.fetch_data(sql, data)
+    if games:
+        return games[-1]
+    return None
+
+
+async def get_player(ctx, name):
+    sql = '''SELECT * from playerData WHERE playerName LIKE %s'''
+    players = db.fetch_data(sql, ('%'+name+'%',))
+    if len(players) == 1:
+        return players[0]
+    elif len(players) == 0:
+        await ctx.send(f"Your search for {name} yielded no results.")
+    else:
+        reply = f"Your search for {name} returned too many results"
+        for player in players:
+            if player[1].lower() == name.lower():
+                return player
+            reply += f'\n - {player[1]}'
+        await ctx.send(reply)
+    return None
