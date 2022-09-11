@@ -173,8 +173,8 @@ class Game(commands.Cog):
         return
 
 
-def setup(bot):
-    bot.add_cog(Game(bot))
+async def setup(bot):
+    await bot.add_cog(Game(bot))
 
 
 def get_current_game(team: str):

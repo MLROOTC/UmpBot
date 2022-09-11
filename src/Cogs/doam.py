@@ -86,8 +86,8 @@ class Doam(commands.Cog):
                 await doam_channel.send(f'{pitcher2.mention} wins!')
 
 
-def setup(bot):
-    bot.add_cog(Doam(bot))
+async def setup(bot):
+    await bot.add_cog(Doam(bot))
 
 
 async def doamtime(bot, pitcher, batter):

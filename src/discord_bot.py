@@ -11,7 +11,7 @@ from asyncio import TimeoutError
 
 from src.Cogs import player
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.members = True
 
 config = configparser.ConfigParser()
@@ -36,8 +36,9 @@ def read_config(filename, section, setting):
 async def on_ready():
     for filename in os.listdir('Cogs'):
         if filename.endswith('.py'):
-            bot.load_extension('Cogs.%s' % filename[:-3])
+            await bot.load_extension('Cogs.%s' % filename[:-3])
     scoreboard.start()
+    print('ready')
 
 
 @bot.command(brief='Otter plz',
