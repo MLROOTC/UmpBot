@@ -1,3 +1,4 @@
+import configparser
 import discord
 from discord.ext import commands
 
@@ -5,18 +6,30 @@ import src.assets
 import src.db_controller as db
 import src.Ump.robo_ump as robo_ump
 
+config_ini = configparser.ConfigParser()
+config_ini.read('config.ini')
+
 
 class Game(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.ump_hq = self.bot.get_channel(int(config_ini['Channels']['ump_hq']))
 
     @commands.command(brief='',
                       description='')
-    async def dm_swing(self, ctx):
-        # TODO
-        # Get batter ID
-        # See if they are up to bat anywhere
+    async def dm_swing(self, ctx, swing: int):
+        if not ctx.guild:
+            if not 0 < swing <= 1000:
+                await ctx.send('Not a valid pitch dum dum.')
+                return
+            game, home = await robo_ump.fetch_game(ctx, self.bot)
+            data = (ctx.message.id, ctx.message.created_at) + game
+            db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
+            await ctx.message.add_reaction('👍')
+            return
+        else:
+            await ctx.send('This command only works in DMs.')
         return
 
     @commands.command(brief='',
@@ -41,7 +54,14 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def request_sub(self, ctx, team: str):
+    async def request_sub(self, ctx, team: str, player_out: str, player_in: str, position: str):
+        # TODO
+
+        return
+
+    @commands.command(brief='',
+                      description='')
+    async def request_position_change(self, ctx, team: str, player: str, old_pos: str, new_pos: str):
         # TODO
         return
 
@@ -61,15 +81,9 @@ class Game(commands.Cog):
     @commands.command(brief='',
                       description='')
     async def game_state(self, ctx, team: str, season: int = None, session: int = None):
-        if season and session:
-            sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
-            data = (team, team, season, session)
-        else:
-            sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
-            data = (team, team)
-        games = db.fetch_data(sql, data)
-        if games:
-            game = games[-1]
+        game = fetch_game(team, season, session)
+        if game:
+            game = fetch_game(team, season, session)
             sql = '''SELECT awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
             awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg = db.fetch_one(sql, game)
             sql = '''SELECT current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, swing_src, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
@@ -105,15 +119,17 @@ class Game(commands.Cog):
                     pitcher_name = pitcher_name[1]
                 else:
                     continue
-
-            description = f'{pitcher_name: <15}  {current_pitcher[1][0]}|{current_pitcher[2]}-{current_pitcher[3]}\n'
-            description += f'{batter_name: <15}  {current_batter[1][0]}|{current_batter[2]}\n\n'
-            description += f'{awayTeam} {awayScore}     {b2}       '
+            if complete:
+                description = ''
+            else:
+                description = f'{pitcher_name: <15}  {current_pitcher[1][0]}|{current_pitcher[2]}-{current_pitcher[3]}\n'
+                description += f'{batter_name: <15}  {current_batter[1][0]}|{current_batter[2]}\n\n'
+            description += f'{awayTeam: <4} {awayScore: <2}     {b2}     '
             if complete:
                 description += 'Final\n'
             else:
                 description += f'   {inning}\n'
-            description += f'{homeTeam} {homeScore}   {b1}   {b3}     '
+            description += f'{homeTeam: <4} {homeScore: <2}   {b1}   {b3}   '
             if not complete:
                 description += f'{outs} Out'
             embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
@@ -136,7 +152,7 @@ class Game(commands.Cog):
                     if swing_src:
                         embed.add_field(name='Swing', value=f'Swing submitted at {swing_submitted}', inline=True)
                     else:
-                        embed.add_field(name='Swing', value=f'Swing request sent at {swing_requested}', inline=True)
+                        embed.add_field(name='Swing', value=f'AB posted at {swing_requested}', inline=True)
                 else:
                     embed.add_field(name='Swing', value='-', inline=True)
                 if conditional_pitch_requested:
@@ -166,5 +182,14 @@ def get_current_game(team: str):
     return
 
 
-def create_game_embed():
-    return
+def fetch_game(team, season, session):
+    if season and session:
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
+        data = (team, team, season, session)
+    else:
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
+        data = (team, team)
+    games = db.fetch_data(sql, data)
+    if games:
+        return games[-1]
+    return None

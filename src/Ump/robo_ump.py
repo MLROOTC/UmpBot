@@ -188,3 +188,43 @@ def get_current_lineup(league, season, session, game_id, home):
 async def parse_pitch(ctx, message_id: int):
     pitch = await ctx.fetch_message(int(message_id))
     return int(re.sub(regex, '', pitch.content))
+
+
+async def fetch_game(ctx, bot):
+    pitcher_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
+    if pitcher_id:
+        active_games = db.fetch_data('''SELECT league, season, session, game_id, home_pitcher, away_pitcher FROM pitchData WHERE (home_pitcher=%s OR away_pitcher=%s)''', (pitcher_id[0], pitcher_id[0]))
+        if not active_games:
+            await ctx.send("I couldn't find any active games you are pitching in.")
+            return None
+        if len(active_games) == 1:
+            if active_games[0][4] == pitcher_id[0]:
+                return active_games[0][0:4], 'home'
+            elif active_games[0][5] == pitcher_id[0]:
+                return active_games[0][0:4], 'away'
+            else:
+                await ctx.send('Are you even pitching right now??')
+        else:
+            prompt = f'**Multiple games found. Please select a game:** \n```'
+            for i in range(len(active_games)):
+                game = active_games[i]
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', game[0:4])
+                prompt += f'{i+1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
+            prompt += '```'
+            await ctx.send(prompt)
+
+            def wait_for_response(msg):
+                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
+
+            game_number = await bot.wait_for('message', check=wait_for_response)
+            game_number = int(game_number.content)
+            if active_games[game_number-1][4] == pitcher_id[0]:
+                return active_games[game_number-1][0:4], 'home'
+            elif active_games[game_number-1][5] == pitcher_id[0]:
+                return active_games[game_number-1][0:4], 'away'
+            else:
+                await ctx.send('Are you even pitching right now??')
+    else:
+        await ctx.send("I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
+        return None
+
