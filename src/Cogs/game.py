@@ -291,6 +291,11 @@ class Game(commands.Cog):
         await robo_ump.get_swing_from_reddit(reddit_comment)
         return
 
+    @commands.command()
+    async def do_result(self, ctx, league, season, session, game_id):
+        robo_ump.result(league, season, session, game_id)
+        return
+
 
 async def setup(bot):
     await bot.add_cog(Game(bot))

@@ -46,6 +46,7 @@ def time_to_swing(league, season, session, game_id):
 
 async def get_swing_from_reddit(reddit_comment_url):
     swing_comment = await reddit.get_comment(reddit_comment_url)
+
     numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
@@ -262,4 +263,14 @@ async def get_player(ctx, name):
 def set_event(sheet_id: str, event_type: str):
     # TODO
     print(sheet_id, event_type)
+    return
+
+
+def result(ctx, league, season, session, game_id):
+    sql = '''SELECT pitch_src, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+    pitch_src, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+
+    if pitch_src and swing_src:
+        pitch = parse_pitch(ctx, pitch_src)
+
     return

@@ -160,3 +160,5 @@ main_role_ids = {
 fcb_team_ids = ['PUR', 'ORD', 'MSU', 'MCH', 'HRW', 'PAN']
 
 valid_positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PH', 'PR']
+
+steal_types = ['STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MULTISTEAL 3B', 'MULTISTEAL HOME']
