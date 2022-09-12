@@ -1,6 +1,8 @@
 import configparser
 import discord
+import praw
 from discord.ext import commands
+from discord.ui import Button, View
 
 import src.assets
 import src.db_controller as db
@@ -99,7 +101,7 @@ class Game(commands.Cog):
             embed.add_field(name='Player In', value=player_in[1])
             embed.add_field(name='Position', value=position)
             embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
-            await ctx.send(embed=embed)
+            await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed))
 
     @commands.command(brief='',
                       description='')
@@ -123,7 +125,7 @@ class Game(commands.Cog):
             embed.add_field(name='Old Position', value=old_pos.upper(), inline=True)
             embed.add_field(name='New Position', value=new_pos.upper(), inline=True)
             embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
-            await ctx.send(embed=embed)
+            await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed))
         return None
 
     @commands.command(brief='',
@@ -154,7 +156,7 @@ class Game(commands.Cog):
         else:
             embed.add_field(name='Swing Posted', value='-', inline=True)
         embed.add_field(name='Conditional Sub', value=conditional_sub, inline=False)
-        confirmation = await ctx.send(embed=embed)
+        confirmation = await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed))
 
     @commands.command(brief='',
                       description='')
@@ -187,7 +189,7 @@ class Game(commands.Cog):
         else:
             embed.add_field(name='Pitch Submitted', value='-', inline=True)
         embed.add_field(name='Conditional Sub', value=conditional_sub, inline=False)
-        confirmation = await ctx.send(embed=embed)
+        confirmation = await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed))
 
     @commands.command(brief='',
                       description='')
@@ -284,6 +286,68 @@ class Game(commands.Cog):
             await ctx.send(embed=embed)
         return
 
+    @commands.command()
+    async def check_swing(self, ctx, reddit_comment: str):
+        await robo_ump.get_swing_from_reddit(reddit_comment)
+        return
+
 
 async def setup(bot):
     await bot.add_cog(Game(bot))
+
+
+def standard_buttons(channel, embed):
+    confirm = Button(label="Confirm", style=discord.ButtonStyle.green)
+    cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
+
+    async def send_request(interaction):
+        if 'Auto' in embed.title:
+            await channel.send(embed=embed, view=auto_buttons(embed))
+        else:
+            await channel.send(embed=embed)
+        await interaction.response.edit_message(content='Request sent.', view=None, embed=None)
+
+    async def cancel_request(interaction):
+        await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
+        return
+
+    confirm.callback = send_request
+    cancel.callback = cancel_request
+    view = View(timeout=None)
+    view.add_item(confirm)
+    view.add_item(cancel)
+    return view
+
+
+def auto_buttons(embed):
+    for field in embed.fields:
+        if field.name == 'Ump Sheet':
+            sheet_id = field.value[46:-1]
+            continue
+
+    auto = Button(label="Confirm Auto", style=discord.ButtonStyle.red)
+    no_auto = Button(label="No Auto", style=discord.ButtonStyle.gray)
+
+    async def auto_k_callback(interaction):
+        robo_ump.set_event(sheet_id, 'AUTO K')
+        await interaction.response.edit_message(view=None, embed=embed)
+        await interaction.followup.send(content='Auto K processed.')
+
+    async def auto_bb_callback(interaction):
+        robo_ump.set_event(sheet_id, 'AUTO BB')
+        await interaction.response.edit_message(view=None, embed=embed)
+        await interaction.followup.send(content='Auto BB processed.')
+
+    async def no_auto_callback(interaction):
+        await interaction.response.edit_message(view=None, embed=embed)
+        await interaction.followup.send(content='Auto request rejected.')
+
+    if 'Auto K' in embed.title:
+        auto.callback = auto_k_callback
+    elif 'Auto BB' in embed.title:
+        auto.callback = auto_bb_callback
+    no_auto.callback = no_auto_callback
+    view = View(timeout=None)
+    view.add_item(auto)
+    view.add_item(no_auto)
+    return view

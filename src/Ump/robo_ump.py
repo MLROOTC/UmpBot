@@ -257,3 +257,9 @@ async def get_player(ctx, name):
             reply += f'\n - {player[1]}'
         await ctx.send(reply)
     return None
+
+
+def set_event(sheet_id: str, event_type: str):
+    # TODO
+    print(sheet_id, event_type)
+    return
