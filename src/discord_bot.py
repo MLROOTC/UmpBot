@@ -5,10 +5,8 @@ import discord
 from discord.ext import commands, tasks
 import os
 import configparser
-from discord.ext.commands import CommandNotFound, MissingRole, MissingRequiredArgument, CommandInvokeError
-from googleapiclient.errors import HttpError
-from asyncio import TimeoutError
 
+from src.Ump import gameplay_loop
 from src.Cogs import player
 
 intents = discord.Intents.all()
@@ -36,8 +34,9 @@ def read_config(filename, section, setting):
 async def on_ready():
     for filename in os.listdir('Cogs'):
         if filename.endswith('.py'):
-            await bot.load_extension('Cogs.%s' % filename[:-3])
-    scoreboard.start()
+            await bot.load_extension(f'Cogs.{filename[:-3]}')
+    # scoreboard.start()
+    ump_bot.start()
     print('ready')
 
 
@@ -75,6 +74,12 @@ async def scoreboard():
     embed.add_field(name='MiLR Scoreboard', value=milr_scoreboard)
     embed.set_footer(text='Last updated %s' % datetime.datetime.now())
     await scoreboard_msg.edit(content=None, embed=embed)
+
+
+@tasks.loop(seconds=5*60)
+async def ump_bot():
+    gameplay_loop.gameplay_loop()
+
 
 
 # @bot.event

@@ -1,3 +1,5 @@
+import configparser
+from dhooks import Webhook
 import src.assets as assets
 import src.db_controller as db
 import src.reddit_interface as reddit
@@ -5,7 +7,176 @@ import src.sheets_reader as sheets
 import re
 
 
+config_ini = configparser.ConfigParser()
+config_ini = 'config.ini'
+league_config = 'league.ini'
+master_ump_sheet = "1DTcSKkfpIn3_zRGY2_jdEGt3mSGT2nC2y1aJoXe--Rk"
 regex = "[^0-9]"
+
+
+async def create_ump_sheets(bot, session: int):
+    games = sheets.read_sheet(master_ump_sheet, f'Session {session}')
+    for game in games:
+        if game[0] != 'League':
+            league = game[0]
+            away_team = game[1]
+            home_team = game[2]
+            flavor_text = ''
+            if len(game) == 4:
+                flavor_text = game[3]
+            season = int(read_config(league_config, league, 'season'))
+            game_check = db.fetch_one('SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND awayTeam=%s AND homeTeam=%s', (league, season, session, away_team, home_team))
+            if not game_check:
+                # Create Copy of Ump Sheet
+                file_id = read_config(league_config, league.upper(), 'sheet')
+                sheet_title = f'{league.upper()} {season}.{session} - {away_team} vs {home_team}'
+                sheet_id = sheets.copy_ump_sheet(file_id, sheet_title)
+                log_msg(f'Created ump sheet {league.upper()} {season}.{session} - {away_team}@{home_team}: <https://docs.google.com/spreadsheets/d/{sheet_id}>')
+
+                # Insert New Game into Database
+                game_id = int(read_config(league_config, league.upper(), 'gameid'))
+                write_config(league_config, league.upper(), 'gameid', str(game_id + 1))
+                sql = '''INSERT INTO gameData (league, season, session, gameID, sheetID, awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, state) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'''
+                data = (league, season, session, game_id, sheet_id, away_team, home_team, 0, 0, 'T1', 0, 0, 0, 'SETUP')
+                db.update_database(sql, data)
+                sql = '''INSERT INTO pitchData (league, season, session, game_id) VALUES (%s,%s,%s,%s)'''
+                data = (league, season, session, game_id)
+                db.update_database(sql, data)
+
+                # Post Thread
+                away_name, away_role_id = db.fetch_one('SELECT name, role_id FROM teamData WHERE abb=%s', (away_team,))
+                home_name, home_role_id = db.fetch_one('SELECT name, role_id FROM teamData WHERE abb=%s', (home_team,))
+                thread = await post_thread(sheet_id, league, season, session, away_name, home_name, flavor_text)
+                db.update_database('''UPDATE gameData SET threadURL=%s WHERE sheetID=%s''', (thread.url, sheet_id))
+
+                # Ping in #game-discussion
+                hype_ping = f'<@&{away_role_id}> <@&{home_role_id}> your game thread has been created! {thread.url}'
+                channel = int(read_config(league_config, league.upper(), 'game_discussion'))
+                channel = bot.get_channel(channel)
+                await channel.send(hype_ping)
+                set_state(league, season, session, game_id, 'WAITING FOR LINEUPS')
+    return
+
+
+async def fetch_game(ctx, bot):
+    pitcher_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
+    if pitcher_id:
+        active_games = db.fetch_data('''SELECT league, season, session, game_id, home_pitcher, away_pitcher FROM pitchData WHERE (home_pitcher=%s OR away_pitcher=%s)''', (pitcher_id[0], pitcher_id[0]))
+        if not active_games:
+            await ctx.send("I couldn't find any active games you are pitching in.")
+            return None
+        if len(active_games) == 1:
+            if active_games[0][4] == pitcher_id[0]:
+                return active_games[0][0:4], 'home'
+            elif active_games[0][5] == pitcher_id[0]:
+                return active_games[0][0:4], 'away'
+            else:
+                await ctx.send('Are you even pitching right now??')
+        else:
+            prompt = f'**Multiple games found. Please select a game:** \n```'
+            for i in range(len(active_games)):
+                game = active_games[i]
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', game[0:4])
+                prompt += f'{i+1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
+            prompt += '```'
+            await ctx.send(prompt)
+
+            def wait_for_response(msg):
+                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
+
+            game_number = await bot.wait_for('message', check=wait_for_response)
+            game_number = int(game_number.content)
+            if active_games[game_number-1][4] == pitcher_id[0]:
+                return active_games[game_number-1][0:4], 'home'
+            elif active_games[game_number-1][5] == pitcher_id[0]:
+                return active_games[game_number-1][0:4], 'away'
+            else:
+                await ctx.send('Are you even pitching right now??')
+    else:
+        await ctx.send("I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
+        return None
+
+
+async def fetch_game_swing(ctx, bot):
+    batter_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
+    if batter_id:
+        active_games = db.fetch_data('''SELECT league, season, session, game_id, current_batter FROM pitchData WHERE current_batter=%s''', (batter_id[0],))
+        if not active_games:
+            await ctx.send("You aren't up to bat anywhere.")
+            return None
+        if len(active_games) == 1:
+            if active_games[0][4] == batter_id[0]:
+                return active_games[0][0:4]
+            elif active_games[0][5] == batter_id[0]:
+                return active_games[0][0:4]
+            else:
+                await ctx.send('Are you even pitching right now??')
+        else:
+            prompt = f'**Multiple games found. Please select a game:** \n```'
+            for i in range(len(active_games)):
+                game = active_games[i]
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', game[0:4])
+                prompt += f'{i+1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
+            prompt += '```'
+            await ctx.send(prompt)
+
+            def wait_for_response(msg):
+                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
+
+            game_number = await bot.wait_for('message', check=wait_for_response)
+            game_number = int(game_number.content)
+            if active_games[game_number-1][4] == batter_id[0]:
+                return active_games[game_number-1][0:4]
+            elif active_games[game_number-1][5] == batter_id[0]:
+                return active_games[game_number-1][0:4]
+            else:
+                await ctx.send('Are you even pitching right now??')
+    else:
+        await ctx.send("I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
+        return None
+
+
+def fetch_game_team(team, season, session):
+    if season and session:
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
+        data = (team, team, season, session)
+    else:
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
+        data = (team, team)
+    games = db.fetch_data(sql, data)
+    if games:
+        return games[-1]
+    return None
+
+
+def get_active_games():
+    sql = '''SELECT league, season, session, gameID, state FROM gameData WHERE complete=%s'''
+    return db.fetch_data(sql, (0,))
+
+
+def get_box_score(sheet_id):
+    text = ''
+    rows = sheets.read_sheet(sheet_id, assets.calc_cell2['boxscore'])
+    for row in rows:
+        if len(row) > 0:
+            text += row[0]
+        text += "\n"
+    return text
+
+
+def get_current_lineup(league, season, session, game_id, home):
+    sql = '''SELECT player_id, position, batting_order, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND home=%s ORDER BY batting_order'''
+    lineup = db.fetch_data(sql, (league, season, session, game_id, home))
+    print(lineup)
+    lineup_string = ''
+    for line in lineup:
+        player_id, position, order, starting = line
+        player_name = get_player_name(player_id)
+        if not starting:
+            order = ''
+        lineup_string += f'{order: <3} {player_name: <25} - {position}\n'
+        print(f'{order: <3} {player_name: <25} - {position}\n')
+    return lineup_string
 
 
 async def get_pitch(bot, player_id, league, season, session, game_id):
@@ -28,19 +199,41 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
     return
 
 
-def time_to_pitch(league, season, session, game_id):
-    sql = '''SELECT pitch_requested, pitch_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
-    pitch_requested, pitch_submitted = db.fetch_one(sql, (league, season, session, game_id))
-    if pitch_requested and pitch_submitted:
-        return pitch_submitted - pitch_requested
+async def get_player(ctx, name):
+    sql = '''SELECT * from playerData WHERE playerName LIKE %s'''
+    players = db.fetch_data(sql, ('%'+name+'%',))
+    if len(players) == 1:
+        return players[0]
+    elif len(players) == 0:
+        await ctx.send(f"Your search for {name} yielded no results.")
+    else:
+        reply = f"Your search for {name} returned too many results"
+        for player in players:
+            if player[1].lower() == name.lower():
+                return player
+            reply += f'\n - {player[1]}'
+        await ctx.send(reply)
     return None
 
 
-def time_to_swing(league, season, session, game_id):
-    sql = '''SELECT swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
-    swing_requested, swing_submitted = db.fetch_one(sql, (league, season, session, game_id))
-    if swing_requested and swing_submitted:
-        return swing_requested - swing_submitted
+def get_player_id(player_name):
+    player_id = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_name,))
+    if player_id:
+        return player_id[0]
+    return None
+
+
+def get_player_name(player_id):
+    player_name = db.fetch_one('''SELECT playerName FROM playerData WHERE playerID=%s''', (player_id,))
+    if player_name:
+        return player_name[0]
+    return None
+
+
+def get_player_from_discord(discord_id: int):
+    player_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (discord_id,))
+    if player_id:
+        return player_id[0]
     return None
 
 
@@ -57,6 +250,65 @@ async def get_swing_from_reddit(reddit_comment_url):
     else:
         await swing_comment.reply('I found too many numbers in your swing. Please reply to the original AB ping with only one number included in your swing.')
     return
+
+
+def log_msg(message: str):
+    hook = Webhook(read_config(config_ini, 'Channels', 'error_log_webhook'))
+    hook.send(message)
+    return
+
+
+async def parse_pitch(ctx, message_id: int):
+    pitch = await ctx.fetch_message(int(message_id))
+    return int(re.sub(regex, '', pitch.content))
+
+
+async def parse_pitch(bot, user_id: int, message_id: int):
+    current_pitcher = bot.get_user(int(user_id))
+    dm_channel = current_pitcher.dm_channel
+    if not dm_channel:
+        dm_channel = await current_pitcher.create_dm()
+    pitch = await dm_channel.fetch_message(int(message_id))
+    return int(re.sub(regex, '', pitch.content))
+
+
+async def post_thread(sheet_id, league, season, session, away_team, home_team, flavor_text):
+    thread_title = f'[{league.upper()} {season}.{session}] {away_team} vs {home_team}'
+    if flavor_text:
+        thread_title += f' - {flavor_text}'
+    body = get_box_score(sheet_id)
+    subreddit_name = read_config(config_ini, 'Reddit', 'subreddit_name')
+    thread = await reddit.post_thread(subreddit_name, thread_title, body)
+    log_msg(f'Created game thread: <{thread.url}>')
+    return thread
+
+
+def read_config(filename, section, setting):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    return ini_file[section][setting]
+
+
+async def result(bot, league, season, session, game_id):
+    sql = '''SELECT current_pitcher, current_batter, pitch_src, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+    current_pitcher, current_batter, pitch_src, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+    if pitch_src and swing_src:
+        current_pitcher = db.fetch_one('''SELECT discordID FROM playerData WHERE playerID=%s''', (current_pitcher,))
+        pitch = await parse_pitch(bot, int(current_pitcher[0]), int(pitch_src))
+        if swing_src.isnumeric():  # Discord DM Swing
+            current_batter = db.fetch_one('''SELECT discordID FROM playerData WHERE playerID=%s''', (current_batter,))
+            swing = await parse_pitch(bot, int(current_batter[0]), int(swing_src))
+        return pitch
+
+
+def set_event(sheet_id: str, event_type: str):
+    # TODO
+    print(sheet_id, event_type)
+    return
+
+
+def set_state(league, season, session, game_id, state):
+    db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (league, season, session, game_id, state))
 
 
 async def starting_lineup(league, season, session, game_id):
@@ -150,127 +402,25 @@ async def subs(league, season, session, game_id):
         print('done')
 
 
-def get_player_id(player_name):
-    player_id = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_name,))
-    if player_id:
-        return player_id[0]
+def time_to_pitch(league, season, session, game_id):
+    sql = '''SELECT pitch_requested, pitch_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+    pitch_requested, pitch_submitted = db.fetch_one(sql, (league, season, session, game_id))
+    if pitch_requested and pitch_submitted:
+        return pitch_submitted - pitch_requested
     return None
 
 
-def get_player_name(player_id):
-    player_name = db.fetch_one('''SELECT playerName FROM playerData WHERE playerID=%s''', (player_id,))
-    if player_name:
-        return player_name[0]
+def time_to_swing(league, season, session, game_id):
+    sql = '''SELECT swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+    swing_requested, swing_submitted = db.fetch_one(sql, (league, season, session, game_id))
+    if swing_requested and swing_submitted:
+        return swing_requested - swing_submitted
     return None
 
 
-def get_player_from_discord(discord_id: int):
-    player_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (discord_id,))
-    if player_id:
-        return player_id[0]
-    return None
-
-
-def get_current_lineup(league, season, session, game_id, home):
-    sql = '''SELECT player_id, position, batting_order, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND home=%s ORDER BY batting_order'''
-    lineup = db.fetch_data(sql, (league, season, session, game_id, home))
-    print(lineup)
-    lineup_string = ''
-    for line in lineup:
-        player_id, position, order, starting = line
-        player_name = get_player_name(player_id)
-        if not starting:
-            order = ''
-        lineup_string += f'{order: <3} {player_name: <25} - {position}\n'
-        print(f'{order: <3} {player_name: <25} - {position}\n')
-    return lineup_string
-
-
-async def parse_pitch(ctx, message_id: int):
-    pitch = await ctx.fetch_message(int(message_id))
-    return int(re.sub(regex, '', pitch.content))
-
-
-async def fetch_game(ctx, bot):
-    pitcher_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
-    if pitcher_id:
-        active_games = db.fetch_data('''SELECT league, season, session, game_id, home_pitcher, away_pitcher FROM pitchData WHERE (home_pitcher=%s OR away_pitcher=%s)''', (pitcher_id[0], pitcher_id[0]))
-        if not active_games:
-            await ctx.send("I couldn't find any active games you are pitching in.")
-            return None
-        if len(active_games) == 1:
-            if active_games[0][4] == pitcher_id[0]:
-                return active_games[0][0:4], 'home'
-            elif active_games[0][5] == pitcher_id[0]:
-                return active_games[0][0:4], 'away'
-            else:
-                await ctx.send('Are you even pitching right now??')
-        else:
-            prompt = f'**Multiple games found. Please select a game:** \n```'
-            for i in range(len(active_games)):
-                game = active_games[i]
-                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', game[0:4])
-                prompt += f'{i+1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
-            prompt += '```'
-            await ctx.send(prompt)
-
-            def wait_for_response(msg):
-                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
-
-            game_number = await bot.wait_for('message', check=wait_for_response)
-            game_number = int(game_number.content)
-            if active_games[game_number-1][4] == pitcher_id[0]:
-                return active_games[game_number-1][0:4], 'home'
-            elif active_games[game_number-1][5] == pitcher_id[0]:
-                return active_games[game_number-1][0:4], 'away'
-            else:
-                await ctx.send('Are you even pitching right now??')
-    else:
-        await ctx.send("I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
-        return None
-
-
-def fetch_game_by_team(team, season, session):
-    if season and session:
-        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
-        data = (team, team, season, session)
-    else:
-        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
-        data = (team, team)
-    games = db.fetch_data(sql, data)
-    if games:
-        return games[-1]
-    return None
-
-
-async def get_player(ctx, name):
-    sql = '''SELECT * from playerData WHERE playerName LIKE %s'''
-    players = db.fetch_data(sql, ('%'+name+'%',))
-    if len(players) == 1:
-        return players[0]
-    elif len(players) == 0:
-        await ctx.send(f"Your search for {name} yielded no results.")
-    else:
-        reply = f"Your search for {name} returned too many results"
-        for player in players:
-            if player[1].lower() == name.lower():
-                return player
-            reply += f'\n - {player[1]}'
-        await ctx.send(reply)
-    return None
-
-
-def set_event(sheet_id: str, event_type: str):
-    # TODO
-    print(sheet_id, event_type)
-    return
-
-
-def result(ctx, league, season, session, game_id):
-    sql = '''SELECT pitch_src, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-    pitch_src, swing_src = db.fetch_one(sql, (league, season, session, game_id))
-
-    if pitch_src and swing_src:
-        pitch = parse_pitch(ctx, pitch_src)
-
-    return
+def write_config(filename, section, setting, value):
+    ini_file = configparser.ConfigParser()
+    ini_file.read(filename)
+    ini_file.set(section, setting, value)
+    with open(filename, 'w') as configfile:
+        ini_file.write(configfile)

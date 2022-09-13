@@ -50,9 +50,10 @@ async def get_thread_url(thread_url):
 
 
 async def post_thread(subreddit, title, body):
-    subreddit = await reddit.subreddit(subreddit)
-    thread = await subreddit.submit(title, selftext=body)
-    return await reddit.submission(thread)
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent, username=username, password=password) as reddit:
+        subreddit = await reddit.subreddit(subreddit)
+        thread = await subreddit.submit(title, selftext=body)
+        return await reddit.submission(thread)
 
 
 async def post_comment(thread_url, comment):

@@ -65,7 +65,9 @@ calc_cell = {
     'ump_list': 'Calculator!F24:F26',
     'wnd_standings': 'Standings!F12:I15'
 }
-
+calc_cell2 = {
+    'boxscore': 'Box Score!A1:A77',
+}
 batting_types = {
     '1B': '1B/BB',
     'BC': 'Basic Contact',
@@ -162,3 +164,17 @@ fcb_team_ids = ['PUR', 'ORD', 'MSU', 'MCH', 'HRW', 'PAN']
 valid_positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PH', 'PR']
 
 steal_types = ['STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MULTISTEAL 3B', 'MULTISTEAL HOME']
+
+game_states = [
+    'INITIALIZING',
+    'CREATING UMP SHEET',
+    'WAITING FOR LINEUPS',
+    'POST THREAD',
+    'WAITING FOR PITCH',
+    'WAITING FOR SWING',
+    'WAITING FOR RESULT',
+    'SUB REQUESTED',
+    'AUTO REQUESTED',
+    'FINALIZING',
+    'COMPLETE'
+]
