@@ -66,7 +66,12 @@ calc_cell = {
     'wnd_standings': 'Standings!F12:I15'
 }
 calc_cell2 = {
+    'away_team': 'Starting Lineups!B2',
     'boxscore': 'Box Score!A1:A77',
+    'event': 'Calc2!G10',
+    'good_lineup': 'Starting Lineups!B18:E18',
+    'home_team': 'Starting Lineups!E2',
+    'swing_pitch': 'Calc2!C10:E10',
 }
 batting_types = {
     '1B': '1B/BB',
@@ -165,16 +170,4 @@ valid_positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PH
 
 steal_types = ['STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MULTISTEAL 3B', 'MULTISTEAL HOME']
 
-game_states = [
-    'INITIALIZING',
-    'CREATING UMP SHEET',
-    'WAITING FOR LINEUPS',
-    'POST THREAD',
-    'WAITING FOR PITCH',
-    'WAITING FOR SWING',
-    'WAITING FOR RESULT',
-    'SUB REQUESTED',
-    'AUTO REQUESTED',
-    'FINALIZING',
-    'COMPLETE'
-]
+event_types = ['Swing', 'Auto K', 'Auto BB', 'Bunt', 'Steal 2B', 'Steal 3B', 'Infield In', 'IBB']

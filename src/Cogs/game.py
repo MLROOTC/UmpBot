@@ -28,24 +28,58 @@ class Game(commands.Cog):
         data = (ctx.message.id, ctx.message.created_at) + game
         db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         await ctx.message.add_reaction('👍')
+        robo_ump.log_msg(f'{ctx.author.mention} swung via DM for {game[0]} {game[1]}.{game[2]}.{game[3]} ')
         return
 
     @commands.command(brief='',
                       description='')
     @commands.dm_only()
-    async def gm_steal(self, ctx, swing: int):
+    async def gm_steal(self, ctx, team: str, swing: int, *, steal_type: str):
         if not 0 < swing <= 1000:
             await ctx.send('Not a valid pitch dum dum.')
             return
-        game = await robo_ump.fetch_game_swing(ctx, self.bot)
-        data = (ctx.message.id, ctx.message.created_at) + game
+        if not steal_type.upper() in src.assets.steal_types:
+            await ctx.send(f'Not a valid steal type. Valid types are \n```{src.assets.steal_types}```')
+            return
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        data = (ctx.message.id, ctx.message.created_at, league, season, session, game_id)
+        event = robo_ump.set_event(sheet_id, steal_type.upper())
         db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         await ctx.message.add_reaction('👍')
-        return
+        await ctx.send(f'Event set to {event}')
+        robo_ump.log_msg(f'{ctx.author.mention} issued a GM steal via DMs for {league} {season}.{session}.{game_id}')
+        data = ('WAITING FOR RESULT', league, season, session, game_id)
+        db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', data)
+        robo_ump.log_msg(f'Game {league} {season}.{session}.{game_id} awaiting result...')
 
     @commands.command(brief='',
                       description='')
-    async def conditional_swing(self, ctx, team: str, season: int, session: int, batter: discord.Member, *, notes: str):
+    async def ibb(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        event = robo_ump.set_event(sheet_id, 'IBB')
+        data = ('WAITING FOR RESULT', league, season, session, game_id)
+        db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', data)
+        await ctx.send(f'Event set to {event}')
+        robo_ump.log_msg(f'{ctx.author.mention} issued an IBB for {league} {season}.{session}.{game_id}')
+
+    @commands.command(brief='',
+                      description='')
+    async def infield_in(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        event = robo_ump.set_event(sheet_id, 'Infield In')
+        await ctx.send(f'Event set to {event}')
+        robo_ump.log_msg(f'{ctx.author.mention} set Infield In for {league} {season}.{session}.{game_id}')
+
+    @commands.command(brief='',
+                      description='')
+    async def conditional_swing(self, ctx, team: str, batter: discord.Member, *, notes: str):
+        season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         conditional_batter = robo_ump.get_player_from_discord(batter.id)
         conditional_swing_requested = ctx.message.created_at
@@ -66,7 +100,8 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def conditional_pitch(self, ctx, team: str, season: int, session: int, batter: discord.Member, *, notes: str):
+    async def conditional_pitch(self, ctx, team: str, batter: discord.Member, *, notes: str):
+        season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         conditional_pitcher = robo_ump.get_player_from_discord(batter.id)
         conditional_pitch_requested = ctx.message.created_at
@@ -88,8 +123,9 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def request_sub(self, ctx, team: str, season: int, session: int, position: str, players: str):
+    async def request_sub(self, ctx, team: str, position: str, players: str):
         # TODO
+        season, session = robo_ump.get_current_session(team)
         players = players.split(':')
         player_out = players[0]
         player_in = players[1]
@@ -123,9 +159,10 @@ class Game(commands.Cog):
             return
         player = await robo_ump.get_player(ctx, player)
         if player:
-            game = robo_ump.fetch_game_team(team, None, None)
+            season, session = robo_ump.get_current_session(team)
+            game = robo_ump.fetch_game_team(team, season, session)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
-            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s',game)
+            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
             embed = discord.Embed(title='Position Change Request',
                                   description=f'{ctx.author.mention} has requested the following position change.',
                                   color=discord.Color(value=int(color, 16)))
@@ -139,7 +176,8 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def request_auto_k(self, ctx, team: str, season: int = None, session: int = None):
+    async def request_auto_k(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
         sql = '''SELECT swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
@@ -169,7 +207,8 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def request_auto_bb(self, ctx, team: str, season: int = None, session: int = None):
+    async def request_auto_bb(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
         sql = '''SELECT pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
@@ -202,67 +241,57 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def game_state(self, ctx, team: str, season: int = None, session: int = None):
+    async def game_state(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         if game:
-            game = robo_ump.fetch_game_team(team, season, session)
-            sql = '''SELECT awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
-            awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg = db.fetch_one(sql, game)
+            sql = '''SELECT awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+            awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg, state = db.fetch_one(sql, game)
             sql = '''SELECT current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, swing_src, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             current_pitcher, current_batter, pitch_requested, pitch_submitted, pitch_src, swing_requested, swing_submitted, swing_src, conditional_pitch_requested, conditional_pitch_src, conditional_swing_requested, conditional_swing_src = db.fetch_one(sql, game)
             color, logo = db.fetch_one('''SELECT color, logo_url FROM teamData WHERE abb=%s''', (team,))
-            current_batter = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (current_batter,))
-            current_pitcher = db.fetch_one('''SELECT playerName, hand, pitchType, pitchBonus FROM playerData WHERE playerID=%s''', (current_pitcher,))
-
-            b1 = '○'
-            b2 = '○'
-            b3 = '○'
-            if obc in [1, 4, 5, 7]:
-                b1 = '●'
-            if obc in [2, 4, 6, 7]:
-                b2 = '●'
-            if obc in [3, 5, 6, 7]:
-                b3 = '●'
-
             color = discord.Color(value=int(color, 16))
             title = f'{game[0].upper()} {game[1]}.{game[2]} | {awayTeam} vs. {homeTeam}'
+            if state in ['SETUP', 'WAITING FOR LINEUPS']:
+                description = f'{awayTeam: <4} {awayScore: <2}     ○     T1\n'
+                description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   {outs} Out'
+                embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
 
-            batter_name = current_batter[0]
-            pitcher_name = current_pitcher[0]
-            while len(batter_name) > 15:
-                batter_name = batter_name.split(' ', 1)
-                if len(batter_name) > 1:
-                    batter_name = batter_name[1]
-                else:
-                    continue
-            while len(pitcher_name) > 15:
-                pitcher_name = pitcher_name.split(' ', 1)
-                if len(pitcher_name) > 1:
-                    pitcher_name = pitcher_name[1]
-                else:
-                    continue
-            if complete:
-                description = ''
-            else:
+            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'CONFIRM PITCH']:
+                current_batter = db.fetch_one('''SELECT playerName, hand, batType FROM playerData WHERE playerID=%s''', (current_batter,))
+                current_pitcher = db.fetch_one('''SELECT playerName, hand, pitchType, pitchBonus FROM playerData WHERE playerID=%s''', (current_pitcher,))
+
+                b1 = '○'
+                b2 = '○'
+                b3 = '○'
+                if obc in [1, 4, 5, 7]:
+                    b1 = '●'
+                if obc in [2, 4, 6, 7]:
+                    b2 = '●'
+                if obc in [3, 5, 6, 7]:
+                    b3 = '●'
+
+                batter_name = current_batter[0]
+                pitcher_name = current_pitcher[0]
+                while len(batter_name) > 15:
+                    batter_name = batter_name.split(' ', 1)
+                    if len(batter_name) > 1:
+                        batter_name = batter_name[1]
+                    else:
+                        continue
+                while len(pitcher_name) > 15:
+                    pitcher_name = pitcher_name.split(' ', 1)
+                    if len(pitcher_name) > 1:
+                        pitcher_name = pitcher_name[1]
+                    else:
+                        continue
+
                 description = f'{pitcher_name: <15}  {current_pitcher[1][0]}|{current_pitcher[2]}-{current_pitcher[3]}\n'
                 description += f'{batter_name: <15}  {current_batter[1][0]}|{current_batter[2]}\n\n'
-            description += f'{awayTeam: <4} {awayScore: <2}     {b2}     '
-            if complete:
-                description += 'Final\n'
-            else:
-                description += f'   {inning}\n'
-            description += f'{homeTeam: <4} {homeScore: <2}   {b1}   {b3}   '
-            if not complete:
-                description += f'{outs} Out'
-            embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
-            embed.set_thumbnail(url=src.assets.obc_img[str(obc)])
-            if complete:
-                embed.add_field(name='Winning Pitcher', value=robo_ump.get_player_name(winningPitcher), inline=True)
-                embed.add_field(name='Losing Pitcher', value=robo_ump.get_player_name(losingPitcher), inline=True)
-                if save:
-                    embed.add_field(name='Save', value=robo_ump.get_player_name(save), inline=True)
-                embed.add_field(name='Player of the Game', value=robo_ump.get_player_name(potg), inline=True)
-            else:
+                description += f'{awayTeam: <4} {awayScore: <2}     {b2}        {inning}\n'
+                description += f'{homeTeam: <4} {homeScore: <2}   {b1}   {b3}   {outs} Out'
+                embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
+
                 if pitch_requested:
                     if pitch_src:
                         embed.add_field(name='Pitch', value=f'Pitch submitted at {pitch_submitted}', inline=True)
@@ -291,7 +320,19 @@ class Game(commands.Cog):
                         embed.add_field(name='Conditional Swing', value='Waiting for swing.', inline=True)
                 else:
                     embed.add_field(name='Conditional Swing', value='-', inline=True)
-            embed.add_field(name='View on Reddit', value=f'[Link]({threadURL})', inline=False)
+            elif state in ['FINALIZING', 'COMPLETE']:
+                description = f'{awayTeam: <4} {awayScore: <2}     ○     Final\n'
+                description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   '
+                embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
+                if complete:
+                    embed.add_field(name='Winning Pitcher', value=robo_ump.get_player_name(winningPitcher), inline=True)
+                    embed.add_field(name='Losing Pitcher', value=robo_ump.get_player_name(losingPitcher), inline=True)
+                    if save:
+                        embed.add_field(name='Save', value=robo_ump.get_player_name(save), inline=True)
+                    embed.add_field(name='Player of the Game', value=robo_ump.get_player_name(potg), inline=True)
+            embed.set_thumbnail(url=logo)
+            embed.add_field(name='Status', value=state.title())
+            embed.add_field(name='View on Reddit', value=f'[Link]({threadURL})')
             await ctx.send(embed=embed)
         return
 
@@ -301,13 +342,45 @@ class Game(commands.Cog):
         return
 
     @commands.command()
-    async def do_result(self, ctx, league, season, session, game_id):
+    async def do_result(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session , game_id = robo_ump.fetch_game_team(team, season, session)
         pitch = await robo_ump.result(self.bot, league, season, session, game_id)
         await ctx.send(f'The pitch was {pitch}')
 
     @commands.command()
     async def setup_games(self, ctx, session: int):
+        await ctx.send(f'Setting up games for session {session}...')
         await robo_ump.create_ump_sheets(self.bot, session)
+        await ctx.send('Done.')
+
+    @commands.command()
+    async def set_lineup(self, ctx, team: str, season: int, session: int):
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+
+        done = Button(label="Done", style=discord.ButtonStyle.green)
+        cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
+
+        async def done_lineup(interaction):
+            if robo_ump.lineup_check(sheet_id):
+                robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
+            else:
+                await ctx.send('Still waiting for lineups.')
+                await interaction.response.edit_message(view=None)
+            return
+
+        async def cancel_request(interaction):
+            await interaction.response.edit_message(content='Request cancelled.', view=None)
+            return
+
+        cancel.callback = cancel_request
+        done.callback = done_lineup
+        view = View(timeout=None)
+        view.add_item(done)
+        view.add_item(cancel)
+
+        await ctx.send(content=f'Here\'s your game sheet, please update the **Starting Lineups** tab.\nhttps://docs.google.com/spreadsheets/d/{sheet_id}', view=view)
 
 
 async def setup(bot):
@@ -344,6 +417,7 @@ def auto_buttons(embed):
             continue
 
     auto = Button(label="Confirm Auto", style=discord.ButtonStyle.red)
+    conditional = Button(label="Use Conditional Sub", style=discord.ButtonStyle.green)
     no_auto = Button(label="No Auto", style=discord.ButtonStyle.gray)
 
     async def auto_k_callback(interaction):
@@ -356,16 +430,29 @@ def auto_buttons(embed):
         await interaction.response.edit_message(view=None, embed=embed)
         await interaction.followup.send(content='Auto BB processed.')
 
+    async def conditional_pitch_callback(interaction):
+        # TODO
+        return
+
+    async def conditional_swing_callback(interaction):
+        # TODO
+        return
+
     async def no_auto_callback(interaction):
         await interaction.response.edit_message(view=None, embed=embed)
         await interaction.followup.send(content='Auto request rejected.')
 
     if 'Auto K' in embed.title:
         auto.callback = auto_k_callback
+        conditional.callback = conditional_swing_callback
     elif 'Auto BB' in embed.title:
         auto.callback = auto_bb_callback
+        conditional.callback = conditional_pitch_callback
     no_auto.callback = no_auto_callback
     view = View(timeout=None)
+    view.add_item(conditional)
     view.add_item(auto)
     view.add_item(no_auto)
     return view
+
+

@@ -17,36 +17,46 @@ reddit = asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user
 
 
 async def delete_comment(comment_url):
-    comment = await reddit.comment(url=comment_url)
-    await comment.delete()
-    comment = await reddit.comment(url=comment_url)
-    if comment.body == '[deleted]':
-        return True
-    return False
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        comment = await reddit.comment(url=comment_url)
+        await comment.delete()
+        comment = await reddit.comment(url=comment_url)
+        if comment.body == '[deleted]':
+            return True
+        return False
 
 
 async def delete_thread(thread_url):
-    thread = await get_thread_url(thread_url)
-    await thread.delete()
-    thread = await get_thread_url(thread_url)
-    if thread.selftext == '[deleted]':
-        return True
-    return False
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        thread = await get_thread_url(thread_url)
+        await thread.delete()
+        thread = await get_thread_url(thread_url)
+        if thread.selftext == '[deleted]':
+            return True
+        return False
 
 
 async def edit_thread(thread_url, body):
-    submission = await reddit.submission(Submission.id_from_url(thread_url))
-    if submission.author.name.lower() == username.lower():
-        return await submission.edit(body)
-    return False
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        submission = await reddit.submission(Submission.id_from_url(thread_url))
+        if submission.author.name.lower() == username.lower():
+            return await submission.edit(body)
+        return False
 
 
 async def get_comment(comment_url):
-    return await reddit.comment(url=comment_url)
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        return await reddit.comment(url=comment_url)
 
 
 async def get_thread_url(thread_url):
-    return await reddit.submission(Submission.id_from_url(thread_url))
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        return await reddit.submission(Submission.id_from_url(thread_url))
 
 
 async def post_thread(subreddit, title, body):
@@ -57,5 +67,7 @@ async def post_thread(subreddit, title, body):
 
 
 async def post_comment(thread_url, comment):
-    submission = await reddit.submission(Submission.id_from_url(thread_url))
-    return await submission.reply(comment)
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        submission = await reddit.submission(Submission.id_from_url(thread_url))
+        return await submission.reply(comment)

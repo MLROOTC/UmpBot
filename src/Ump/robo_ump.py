@@ -1,10 +1,10 @@
 import configparser
 from dhooks import Webhook
+import re
 import src.assets as assets
 import src.db_controller as db
 import src.reddit_interface as reddit
 import src.sheets_reader as sheets
-import re
 
 
 config_ini = configparser.ConfigParser()
@@ -12,6 +12,7 @@ config_ini = 'config.ini'
 league_config = 'league.ini'
 master_ump_sheet = "1DTcSKkfpIn3_zRGY2_jdEGt3mSGT2nC2y1aJoXe--Rk"
 regex = "[^0-9]"
+lineup_string = "That's a good lineup!"
 
 
 async def create_ump_sheets(bot, session: int):
@@ -21,6 +22,8 @@ async def create_ump_sheets(bot, session: int):
             league = game[0]
             away_team = game[1]
             home_team = game[2]
+            away_name, away_role_id = db.fetch_one('SELECT name, role_id FROM teamData WHERE abb=%s', (away_team,))
+            home_name, home_role_id = db.fetch_one('SELECT name, role_id FROM teamData WHERE abb=%s', (home_team,))
             flavor_text = ''
             if len(game) == 4:
                 flavor_text = game[3]
@@ -31,6 +34,8 @@ async def create_ump_sheets(bot, session: int):
                 file_id = read_config(league_config, league.upper(), 'sheet')
                 sheet_title = f'{league.upper()} {season}.{session} - {away_team} vs {home_team}'
                 sheet_id = sheets.copy_ump_sheet(file_id, sheet_title)
+                sheets.update_sheet(sheet_id, assets.calc_cell2['away_team'], away_name)
+                sheets.update_sheet(sheet_id, assets.calc_cell2['home_team'], home_name)
                 log_msg(f'Created ump sheet {league.upper()} {season}.{session} - {away_team}@{home_team}: <https://docs.google.com/spreadsheets/d/{sheet_id}>')
 
                 # Insert New Game into Database
@@ -44,8 +49,6 @@ async def create_ump_sheets(bot, session: int):
                 db.update_database(sql, data)
 
                 # Post Thread
-                away_name, away_role_id = db.fetch_one('SELECT name, role_id FROM teamData WHERE abb=%s', (away_team,))
-                home_name, home_role_id = db.fetch_one('SELECT name, role_id FROM teamData WHERE abb=%s', (home_team,))
                 thread = await post_thread(sheet_id, league, season, session, away_name, home_name, flavor_text)
                 db.update_database('''UPDATE gameData SET threadURL=%s WHERE sheetID=%s''', (thread.url, sheet_id))
 
@@ -164,6 +167,18 @@ def get_box_score(sheet_id):
     return text
 
 
+def lineup_check(sheet_id):
+    lineup_checker = sheets.read_sheet(sheet_id, assets.calc_cell2['good_lineup'])
+    if lineup_checker:
+        lineup_checker = lineup_checker[0]
+    else:
+        return False
+    if len(lineup_checker) == 4:
+        if lineup_string in lineup_checker[0] and lineup_checker in lineup_checker[4]:
+            return True
+    return False
+
+
 def get_current_lineup(league, season, session, game_id, home):
     sql = '''SELECT player_id, position, batting_order, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND home=%s ORDER BY batting_order'''
     lineup = db.fetch_data(sql, (league, season, session, game_id, home))
@@ -177,6 +192,16 @@ def get_current_lineup(league, season, session, game_id, home):
         lineup_string += f'{order: <3} {player_name: <25} - {position}\n'
         print(f'{order: <3} {player_name: <25} - {position}\n')
     return lineup_string
+
+
+def get_current_session(team):
+    league = db.fetch_one('''SELECT league FROM teamData WHERE abb=%s''', (team,))
+    if league:
+        league = league[0]
+        season = int(read_config(league_config, league.upper(), 'season'))
+        session = int(read_config(league_config, league.upper(), 'session'))
+        return season, session
+    return None, None
 
 
 async def get_pitch(bot, player_id, league, season, session, game_id):
@@ -237,9 +262,15 @@ def get_player_from_discord(discord_id: int):
     return None
 
 
+def get_sheet(league, season, session, game_id):
+    sheet_id = db.fetch_one('''SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (league, season, session, game_id))
+    if sheet_id:
+        return sheet_id[0]
+    return None
+
+
 async def get_swing_from_reddit(reddit_comment_url):
     swing_comment = await reddit.get_comment(reddit_comment_url)
-
     numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
@@ -290,25 +321,39 @@ def read_config(filename, section, setting):
 
 
 async def result(bot, league, season, session, game_id):
-    sql = '''SELECT current_pitcher, current_batter, pitch_src, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-    current_pitcher, current_batter, pitch_src, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+    sql = '''SELECT current_pitcher, current_batter, pitch_src, swing_src, steal_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+    current_pitcher, current_batter, pitch_src, swing_src, steal_src = db.fetch_one(sql, (league, season, session, game_id))
+    sheet_id, game_thread = db.fetch_one('''SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (league, season, session, game_id))
+    event = sheets.read_sheet(sheet_id, assets.calc_cell2['event'])[0][0]
     if pitch_src and swing_src:
         current_pitcher = db.fetch_one('''SELECT discordID FROM playerData WHERE playerID=%s''', (current_pitcher,))
-        pitch = await parse_pitch(bot, int(current_pitcher[0]), int(pitch_src))
+        if 'STEAL' in event.upper():
+            pitch = await parse_pitch(bot, int(current_pitcher[0]), int(steal_src))
+        elif event == 'Swing':
+            pitch = await parse_pitch(bot, int(current_pitcher[0]), int(pitch_src))
         if swing_src.isnumeric():  # Discord DM Swing
             current_batter = db.fetch_one('''SELECT discordID FROM playerData WHERE playerID=%s''', (current_batter,))
             swing = await parse_pitch(bot, int(current_batter[0]), int(swing_src))
+        else:
+            swing = get_swing_from_reddit(swing_src)
+        set_swing_pitch(sheet_id, swing, pitch)
         return pitch
+    else:
+        return None
 
 
 def set_event(sheet_id: str, event_type: str):
-    # TODO
-    print(sheet_id, event_type)
+    sheets.update_sheet(sheet_id, assets.calc_cell2['event'], event_type)
+    return sheets.read_sheet(sheet_id, assets.calc_cell2['event'])[0][0]
+
+
+def set_swing_pitch(sheet_id, swing: int, pitch: int):
+    sheets.update_sheet(sheet_id, assets.calc_cell2['swing_pitch'], [swing, pitch])
     return
 
 
 def set_state(league, season, session, game_id, state):
-    db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (league, season, session, game_id, state))
+    db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (state, league, season, session, game_id))
 
 
 async def starting_lineup(league, season, session, game_id):
@@ -424,3 +469,5 @@ def write_config(filename, section, setting, value):
     ini_file.set(section, setting, value)
     with open(filename, 'w') as configfile:
         ini_file.write(configfile)
+
+
