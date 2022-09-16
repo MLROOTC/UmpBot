@@ -294,6 +294,10 @@ async def parse_pitch(bot, user_id: int, message_id: int):
     return int(re.sub(regex, '', pitch.content))
 
 
+async def post_at_bat():
+    return
+
+
 async def post_thread(sheet_id, league, season, session, away_team, home_team, flavor_text):
     thread_title = f'[{league.upper()} {season}.{session}] {away_team} vs {home_team}'
     if flavor_text:
@@ -345,6 +349,7 @@ def set_swing_pitch(sheet_id, swing: int, pitch: int):
 
 def set_state(league, season, session, game_id, state):
     db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (state, league, season, session, game_id))
+    log_msg(f'{league.upper()} {season}.{session}.{game_id} state changed to {state}')
 
 
 async def starting_lineup(league, season, session, game_id):

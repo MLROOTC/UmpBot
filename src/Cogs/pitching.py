@@ -31,6 +31,7 @@ class Pitching(commands.Cog):
                 sql = '''UPDATE pitchData SET pitch_src=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
                 data = (ctx.message.id, ctx.message.created_at) + game
             db.update_database(sql, data)
+            robo_ump.set_state(game[0], game[1], game[2], game[3], 'WAITING FOR SWING')
             await ctx.message.add_reaction('👍')
         return
 
