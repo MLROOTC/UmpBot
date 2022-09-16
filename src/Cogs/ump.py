@@ -109,7 +109,7 @@ class Ump(commands.Cog):
 
     @commands.command(brief='Set the event type for the current at bat (swing, steal, etc.)',
                       description='Sets the event type in the calculator for the current at bat. Setting the event type'
-                                  ' to Auto K, Auto BB, or IBB will also reset the swing and pitch in the calculator. '
+                                  ' to Auto K, Auto BB, or IBB will also reset the swing and deprecated_pitch in the calculator. '
                                   '\n\n**Please note that the arguments are case sensitive.**\n\nValid Arguments:\n\n\t'
                                   '[Swing, Auto K, Auto BB, Bunt, Steal 2B, Steal 3B, Steal Home, Infield In, IBB]')
     @commands.has_role(ump_role)
@@ -227,7 +227,7 @@ class Ump(commands.Cog):
                                             else:
                                                 pa_in_db = pa_in_db[0]
                                                 if pa_in_db != pa_in_sheet:
-                                                    sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
+                                                    sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID=%s, hitterTeam=%s, hitterName=%s, hitterID=%s, deprecated_pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B=%s, prAB=%s WHERE paID=%s'''
                                                     db.update_database(sql, (pa_in_sheet + (pa_id,)))
                     starting_pitchers = sheets.read_sheet(sheet_id, assets.calc_cell['starting_pitchers'])
                     sql = '''SELECT playerID from playerData WHERE playerName LIKE %s'''
@@ -419,22 +419,22 @@ class Ump(commands.Cog):
                     'Warning: a discord username is on file, but I couldn\'t find them in main. Their username may be out of date, or they may have left the server. Please post the AB ping manually and alert their GM.')
                 await ctx.send(ab_ping)
 
-    @commands.command(brief='Set pitch for current at bat',
-                      description='Adds the pitch into the calculator. Does not process any results. Note, the sheet is'
+    @commands.command(brief='Set deprecated_pitch for current at bat',
+                      description='Adds the deprecated_pitch into the calculator. Does not process any results. Note, the sheet is'
                                   ' public. Do not use this command before the batter has swung.')
     @commands.has_role(ump_role)
-    async def pitch(self, ctx, pitch):
+    async def deprecated_pitch(self, ctx, pitch):
         if not 0 < int(pitch) <= 1000:
             await ctx.send('Pitch must be between 1 and 1000')
             return
         config = await get_ump_data(ctx, ctx.author.id)
         if config:
             sheet_id = config[2]
-            check_pitch = sheets.update_sheet(sheet_id, assets.calc_cell['pitch'], int(pitch))
+            check_pitch = sheets.update_sheet(sheet_id, assets.calc_cell['deprecated_pitch'], int(pitch))
             if check_pitch:
                 await ctx.message.add_reaction('✅')
             else:
-                await ctx.send('Something went wrong. Could not set pitch to %s' % pitch)
+                await ctx.send('Something went wrong. Could not set deprecated_pitch to %s' % pitch)
 
     @commands.command(brief='Post the reddit thread.',
                       description='Checks the lineup sheet to make sure both lineups are set, and then creates the game'
@@ -525,8 +525,8 @@ class Ump(commands.Cog):
                 await ctx.send('There appears to be an issue with your lineup. Please fix it before posting the game '
                                'thread.')
 
-    @commands.command(brief='Resets the swing, pitch, and event type in the calculator',
-                      description='Resets the pitch, swing, and event fields on the calculator tab in the sheet. Does '
+    @commands.command(brief='Resets the swing, deprecated_pitch, and event type in the calculator',
+                      description='Resets the deprecated_pitch, swing, and event fields on the calculator tab in the sheet. Does '
                                   'not rollback anything that has previously been commited to the game log (use '
                                   '.rollback for that).')
     @commands.has_role(ump_role)
@@ -536,14 +536,14 @@ class Ump(commands.Cog):
             await reset(ctx, config[2])
 
     @commands.command(brief='Gets the result for the current at bat',
-                      description='Accepts a pitch and swing as an optional argument.\n\nAcceptable inputs include:\n'
-                                  '- .result pitch ### swing ###\n'
-                                  '- .result swing ### pitch ###\n'
+                      description='Accepts a deprecated_pitch and swing as an optional argument.\n\nAcceptable inputs include:\n'
+                                  '- .result deprecated_pitch ### swing ###\n'
+                                  '- .result swing ### deprecated_pitch ###\n'
                                   '- .result p ### s ###\n'
                                   '- .result s ### p ###\n'
                                   '- .result\n'
-                                  '\nPitch and swing can also be added using the .pitch and .swing commands, and then '
-                                  'the .result command can be used without argumtns. If there is no pitch and swing '
+                                  '\nPitch and swing can also be added using the .deprecated_pitch and .swing commands, and then '
+                                  'the .result command can be used without argumtns. If there is no deprecated_pitch and swing '
                                   'configured for the required event types the command will fail. Once a result is '
                                   'calculated, the bot will display the bot and propmt for confirmation. When the '
                                   'result is confirmed, the game thread will be updated automatically with the box '
@@ -561,16 +561,16 @@ class Ump(commands.Cog):
             if arg1 and arg2:
                 if arg1.lower() == 'swing' or arg1.lower() == 's':
                     swing_number = arg1_number
-                elif arg1.lower() == 'pitch' or arg1.lower() == 'p':
+                elif arg1.lower() == 'deprecated_pitch' or arg1.lower() == 'p':
                     pitch_number = arg1_number
                 else:
-                    await ctx.send('Unrecognized command format. Please use .result swing ### pitch ###')
+                    await ctx.send('Unrecognized command format. Please use .result swing ### deprecated_pitch ###')
                 if arg2.lower() == 'swing' or arg2.lower() == 's':
                     swing_number = arg2_number
-                elif arg2.lower() == 'pitch' or arg2.lower() == 'p':
+                elif arg2.lower() == 'deprecated_pitch' or arg2.lower() == 'p':
                     pitch_number = arg2_number
                 else:
-                    await ctx.send('Unrecognized command format. Please use .result swing ### pitch ###')
+                    await ctx.send('Unrecognized command format. Please use .result swing ### deprecated_pitch ###')
                     return
                 if not 0 < int(pitch_number) <= 1000:
                     await ctx.send('Pitch must be between 1 and 1000')
@@ -583,7 +583,7 @@ class Ump(commands.Cog):
                     if swing_check:
                         await ctx.message.add_reaction('🦇')
                 if pitch_number:
-                    pitch_check = sheets.update_sheet(sheet_id, assets.calc_cell['pitch'], pitch_number)
+                    pitch_check = sheets.update_sheet(sheet_id, assets.calc_cell['deprecated_pitch'], pitch_number)
                     if pitch_check:
                         await ctx.message.add_reaction('⚾')
             at_bat = sheets.read_sheet(sheet_id, assets.calc_cell['at_bat'])[0]
@@ -850,7 +850,7 @@ class Ump(commands.Cog):
             sheet_id = config[2]
             await ctx.send('https://docs.google.com/spreadsheets/d/%s' % sheet_id)
 
-    @commands.command(brief='Set pitch for current at bat',
+    @commands.command(brief='Set deprecated_pitch for current at bat',
                       desciption='Adds the swing into the calculator. Does not process any results.')
     @commands.has_role(ump_role)
     async def swing(self, ctx, swing):
@@ -1058,7 +1058,7 @@ def log_result(sheet_id, away_team, home_team):
                                away_team, home_team, pitcherName, hitterName, pitch, swing, diff, exactResult,
                                oldResult, resultAtNeutral, resultAllNeutral, rbi, run, pr3B, pr2B, pr1B, prAB,
                                inning_after, obc_after, outs_after, away_score_after, home_score_after)
-        # pa_log = (paID, league, season, session, gameID, inning, inningID, play_number, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB)
+        # pa_log = (paID, league, season, session, gameID, inning, inningID, play_number, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, deprecated_pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB)
         sql = '''INSERT INTO PALogs VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
         db.update_database(sql, pa_log)
     return
@@ -1236,7 +1236,7 @@ def read_config(filename, section, setting):
 
 async def reset(ctx, sheet_id):
     check_event = sheets.update_sheet(sheet_id, assets.calc_cell['event'], 'Swing')
-    check_pitch = sheets.update_sheet(sheet_id, assets.calc_cell['pitch'], ' ')
+    check_pitch = sheets.update_sheet(sheet_id, assets.calc_cell['deprecated_pitch'], ' ')
     check_swing = sheets.update_sheet(sheet_id, assets.calc_cell['swing'], ' ')
     if check_swing and check_pitch and check_event:
         await ctx.send('Calculator reset successfully.')

@@ -78,7 +78,7 @@ async def scoreboard():
 
 @tasks.loop(seconds=5*60)
 async def ump_bot():
-    await gameplay_loop.gameplay_loop()
+    await gameplay_loop.gameplay_loop(bot)
 
 
 # @bot.event

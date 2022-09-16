@@ -31,7 +31,7 @@ class Player(commands.Cog):
         await ctx.send(self.config_ini['URLs']['bunt'])
 
     @commands.command(brief='Calculates an AB result. Use .help calc for more info.',
-                      description='Calculates a result after being passed in a pitcher, batter, swing, and pitch. Park is an optional argument.\n\nFormat:\n\n\t.calc <batterName>; <swing#>; <pitcherName>; <pitch#>; <park>')
+                      description='Calculates a result after being passed in a pitcher, batter, swing, and deprecated_pitch. Park is an optional argument.\n\nFormat:\n\n\t.calc <batterName>; <swing#>; <pitcherName>; <deprecated_pitch#>; <park>')
     async def calc(self, ctx, *, calc_data):
         result_types = ['HR', '3B', '2B', '1B', 'BB', 'FO', 'K', 'PO', 'RGO', 'LGO']
         calc_data = calc_data.replace(' ;', ';')
@@ -550,8 +550,8 @@ class Player(commands.Cog):
     @commands.command()
     async def test(self, ctx):
         # await robo_ump.get_pitch(self.bot, 770, 'SCRIM', 7, 0, 7)
-        # pitch = db.fetch_one('''SELECT pitch, pitch_src FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', ('SCRIM', 7, 0, 7))
-        # await ctx.send(f'Encrypted Pitch: {pitch[0]}')
+        # deprecated_pitch = db.fetch_one('''SELECT deprecated_pitch, pitch_src FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', ('SCRIM', 7, 0, 7))
+        # await ctx.send(f'Encrypted Pitch: {deprecated_pitch[0]}')
         # await ctx.send(f'Decrypted Pitch: {robo_ump.decrypt_pitch("SCRIM", 7, 0, 7)}')
         # await ctx.send(f'Time: {robo_ump.time_to_pitch("SCRIM", 7, 0, 7)}')
         # await robo_ump.starting_lineup("MLR", 7, 1, 1)

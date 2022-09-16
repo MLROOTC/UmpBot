@@ -52,7 +52,7 @@ calc_cell = {
     'nl_central': 'Standings!E4:H8',
     'nl_west': 'Standings!I4:L8',
     'nl_wildcard': 'Standings!N3:Q14',
-    'pitch': 'Calculator!E6',
+    'deprecated_pitch': 'Calculator!E6',
     'pitcher_name': 'Calculator!D6',
     'play_number': 'Calculator!G6',
     'reddit_ping': 'Calculator!B15',
@@ -68,9 +68,11 @@ calc_cell = {
 calc_cell2 = {
     'away_team': 'Starting Lineups!B2',
     'boxscore': 'Box Score!A1:A77',
+    'current_matchup': 'Calc2!C6:E6',
     'event': 'Calc2!G10',
     'good_lineup': 'Starting Lineups!B18:E18',
     'home_team': 'Starting Lineups!E2',
+    'matchup_info': 'CalcBE!V3:AB3',
     'swing_pitch': 'Calc2!C10:E10',
 }
 batting_types = {

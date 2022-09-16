@@ -103,7 +103,7 @@ async def doamtime(bot, pitcher, batter):
 
     # Get Swing
     doam_channel = bot.get_channel(doam_channel_id)
-    await doam_channel.send(f'The pitch is in! Swing {batter.mention}')
+    await doam_channel.send(f'The deprecated_pitch is in! Swing {batter.mention}')
 
     def wait_for_swing(msg):
         return msg.author == batter and msg.channel == doam_channel and msg.content.isnumeric() and int(msg.content) > 0 and int(msg.content) <= 1000

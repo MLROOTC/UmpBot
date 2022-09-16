@@ -12,7 +12,7 @@ config_ini = 'config.ini'
 league_config = 'league.ini'
 master_ump_sheet = "1DTcSKkfpIn3_zRGY2_jdEGt3mSGT2nC2y1aJoXe--Rk"
 regex = "[^0-9]"
-lineup_string = "That's a good lineup!"
+lineup_string = "That\'s a good lineup!"
 
 
 async def create_ump_sheets(bot, session: int):
@@ -174,7 +174,7 @@ def lineup_check(sheet_id):
     else:
         return False
     if len(lineup_checker) == 4:
-        if lineup_string in lineup_checker[0] and lineup_checker in lineup_checker[4]:
+        if lineup_string in lineup_checker[0] and lineup_string in lineup_checker[3]:
             return True
     return False
 
@@ -207,18 +207,9 @@ def get_current_session(team):
 async def get_pitch(bot, player_id, league, season, session, game_id):
     discord_id, reddit_name = db.fetch_one('''SELECT discordID, redditName FROM playerData WHERE playerID=%s''', (player_id,))
     if discord_id:
-        def wait_for_pitch(msg):
-            return msg.author == pitcher and msg.guild is None and msg.content.isnumeric() and int(
-                msg.content) > 0 and int(msg.content) <= 1000
-
         pitcher = bot.get_user(discord_id)
-        pitch_request_msg = await pitcher.send('Gib pitch')
-        db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
-
-        pitch_msg = await bot.wait_for('message', check=wait_for_pitch)
-        sql = '''UPDATE pitchData SET pitch_src=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
-        db.update_database(sql, pitch_msg.id, pitch_msg.id, pitch_msg.created_at, league, season, session, game_id)
-        await pitch_msg.add_reaction('👍')
+        pitch_request_msg = await pitcher.send(f'Pitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
+        db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
     else:
         print('Im not supporting reddit only pitchers')
     return
