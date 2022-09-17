@@ -68,17 +68,17 @@ class Admin(commands.Cog):
             return
 
         sheet_id = sheets.get_sheet_id(config['URLs']['fcb_roster'])
-        player_stats = sheets.read_sheet(sheet_id, 'Player Stats')
-        fcb_stats1 = ''
-        fcb_stats2 = ''
-        for stats in player_stats:
-            if stats[0] == player[1]:
-                if player[7] == 'P':
-                    fcb_stats1 = '%s IP %s ERA' % (stats[44], stats[68])
-                    fcb_stats2 = '%s WHIP %s DBF' % (stats[70], stats[77])
-                else:
-                    fcb_stats1 = '%s AVG %s OBP' % (stats[17], stats[18])
-                    fcb_stats2 = '%s SLG %s DPA' % (stats[19], stats[38])
+        # player_stats = sheets.read_sheet(sheet_id, 'Player Stats')
+        # fcb_stats1 = ''
+        # fcb_stats2 = ''
+        # for stats in player_stats:
+        #     if stats[0] == player[1]:
+        #         if player[7] == 'P':
+        #             fcb_stats1 = '%s IP %s ERA' % (stats[44], stats[68])
+        #             fcb_stats2 = '%s WHIP %s DBF' % (stats[70], stats[77])
+        #         else:
+        #             fcb_stats1 = '%s AVG %s OBP' % (stats[17], stats[18])
+        #             fcb_stats2 = '%s SLG %s DPA' % (stats[19], stats[38])
 
         image_size = (1920, 1080)
         font_name = 'arial.ttf'
@@ -120,7 +120,7 @@ class Admin(commands.Cog):
         # Player Name
         text_size = draw_text.textsize(player[1], font=player_font)
         while text_size[0] > (image_size[0] - 200):
-            player_font = ImageFont.truetype("arial.ttf", player_font.size-20)
+            player_font = ImageFont.truetype(font_name, player_font.size-20)
             text_size = draw_text.textsize(player[1], font=player_font)
         draw_text.text((((image_size[0] - text_size[0]) / 2) + 10, ((image_size[1] - text_size[1]) / 2) + 10), player[1], font=player_font, fill=(0, 0, 0))
         draw_text.text((((image_size[0] - text_size[0]) / 2), ((image_size[1] - text_size[1]) / 2)), player[1], font=player_font, fill=(255, 255, 255), stroke_width=5, stroke_fill=ImageColor.getrgb('#%s' % team_data[0][1]))
@@ -136,12 +136,12 @@ class Admin(commands.Cog):
         draw_text.text((((image_size[0] - text_size[0]) / 2), 700), positions, font=position_font, fill=(255, 255, 255))
 
         # FCB Stats
-        text_size = draw_text.textsize(fcb_stats1, font=stats_font)
-        draw_text.text((((image_size[0] - text_size[0]) / 2) + 10, 850 + 10), fcb_stats1, font=stats_font, fill=(0, 0, 0))
-        draw_text.text((((image_size[0] - text_size[0]) / 2), 850), fcb_stats1, font=stats_font, fill=(255, 255, 255), stroke_width=1, stroke_fill=ImageColor.getrgb('#%s' % team_data[0][1]))
-        text_size = draw_text.textsize(fcb_stats2, font=stats_font)
-        draw_text.text((((image_size[0] - text_size[0]) / 2) + 10, 930 + 10), fcb_stats2, font=stats_font, fill=(0, 0, 0))
-        draw_text.text((((image_size[0] - text_size[0]) / 2), 930), fcb_stats2, font=stats_font, fill=(255, 255, 255), stroke_width=1, stroke_fill=ImageColor.getrgb('#%s' % team_data[0][1]))
+        # text_size = draw_text.textsize(fcb_stats1, font=stats_font)
+        # draw_text.text((((image_size[0] - text_size[0]) / 2) + 10, 850 + 10), fcb_stats1, font=stats_font, fill=(0, 0, 0))
+        # draw_text.text((((image_size[0] - text_size[0]) / 2), 850), fcb_stats1, font=stats_font, fill=(255, 255, 255), stroke_width=1, stroke_fill=ImageColor.getrgb('#%s' % team_data[0][1]))
+        # text_size = draw_text.textsize(fcb_stats2, font=stats_font)
+        # draw_text.text((((image_size[0] - text_size[0]) / 2) + 10, 930 + 10), fcb_stats2, font=stats_font, fill=(0, 0, 0))
+        # draw_text.text((((image_size[0] - text_size[0]) / 2), 930), fcb_stats2, font=stats_font, fill=(255, 255, 255), stroke_width=1, stroke_fill=ImageColor.getrgb('#%s' % team_data[0][1]))
 
         img.save('draft.jpg')
         file = discord.File('draft.jpg', filename='draft.jpg')
