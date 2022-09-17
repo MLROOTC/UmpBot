@@ -1,4 +1,6 @@
 import configparser
+import datetime
+
 from dhooks import Webhook
 import re
 import src.assets as assets
@@ -294,7 +296,28 @@ async def parse_pitch(bot, user_id: int, message_id: int):
     return int(re.sub(regex, '', pitch.content))
 
 
-async def post_at_bat():
+async def post_at_bat(bot, league, season, session, game_id):
+    sheet_id, thread_url = db.fetch_one('SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+    current_batter = db.fetch_one('SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+    if current_batter:
+        current_batter = db.fetch_one('SELECT discordID FROM playerData WHERE playerID=%s', (current_batter[0],))
+        reddit_ping = sheets.read_sheet(sheet_id, assets.calc_cell2['reddit_ping'])
+        discord_ping = sheets.read_sheet(sheet_id, assets.calc_cell2['discord_ping'])
+        reddit_ab_ping = ''
+        discord_ab_ping = ''
+        for line in reddit_ping:
+            if len(line) > 0:
+                reddit_ab_ping += f'   {line[0]}\r\n\r\n'
+        for line in discord_ping:
+            if len(line) > 0:
+                discord_ab_ping += f'{line[0]}\n'
+        ab_ping = await reddit.post_comment(thread_url, reddit_ab_ping)
+        swing_submitted = datetime.datetime.utcfromtimestamp(ab_ping.created_utc)
+        db.update_database('UPDATE pitchData SET swing_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (swing_submitted, league, season, session, game_id))
+        discord_ab_ping += f'\n{bot.get_user(current_batter[0]).mention} is up to bat! No need to ping your umps when you swing, we have bots for that. <https://www.reddit.com{ab_ping.permalink}>'
+        ab_ping_channel = int(read_config(league_config, league, 'ab_pings'))
+        channel = bot.get_channel(ab_ping_channel)
+        await channel.send(discord_ab_ping)
     return
 
 

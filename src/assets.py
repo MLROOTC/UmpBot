@@ -74,7 +74,10 @@ calc_cell2 = {
     'home_team': 'Starting Lineups!E2',
     'matchup_info': 'CalcBE!V3:AB3',
     'swing_pitch': 'Calc2!C10:E10',
+    'reddit_ping': 'Calc2!C16:G19',
+    'discord_ping': 'Calc2!C23:E26',
 }
+
 batting_types = {
     '1B': '1B/BB',
     'BC': 'Basic Contact',
