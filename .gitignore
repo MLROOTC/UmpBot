@@ -148,3 +148,4 @@ src/MLRdata.db
 .idea/workspace.xml
 src/league.ini
 .DS_Store
+*.pickle

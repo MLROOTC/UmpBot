@@ -1,5 +1,5 @@
 import configparser
-
+import praw
 import asyncpraw
 from asyncpraw.reddit import Submission
 
@@ -53,10 +53,26 @@ async def get_comment(comment_url):
         return await reddit.comment(url=comment_url)
 
 
+def get_comment(comment_url):
+    with praw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent, username=username, password=password) as reddit:
+        return reddit.comment(url=comment_url)
+
+
 async def get_thread_url(thread_url):
     async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
                                 username=username, password=password) as reddit:
         return await reddit.submission(Submission.id_from_url(thread_url))
+
+
+async def get_thread(submission_id):
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        return await reddit.submission(submission_id)
+
+
+def get_thread(submission_id):
+    with praw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent, username=username, password=password) as reddit:
+        return reddit.submission(submission_id)
 
 
 async def post_thread(subreddit, title, body):

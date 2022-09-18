@@ -262,18 +262,48 @@ def get_sheet(league, season, session, game_id):
     return None
 
 
-async def get_swing_from_reddit(reddit_comment_url):
-    swing_comment = await reddit.get_comment(reddit_comment_url)
+def get_swing_from_reddit(reddit_comment_url):
+    swing_comment = reddit.get_comment(reddit_comment_url)
+
     numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
         if 0 < swing <= 1000:
-            await swing_comment.reply(f'Found a valid swing: {swing}')
+            parent_thread = reddit.get_thread(swing_comment.submission)
+            league, season, session, game_id, sheet_id = db.fetch_one('SELECT league, season, session, gameID, sheetID FROM gameData WHERE threadURL=%s', (parent_thread.url,))
+
+            # Check for steal/bunt/etc
+            check_for_event(sheet_id, swing_comment)
+
+            # Write swing src, swing submitted to database
+            swing_submitted = datetime.datetime.utcfromtimestamp(swing_comment.created_utc)
+            sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+            db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
+            set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+            # Set state to waiting for result
+            return swing
+
     elif len(numbers_in_comment) == 0:
-        await swing_comment.reply("I couldn't find a valid number in your swing. Please reply to the original at-bat ping with a number between 1 and 1000 without any decimal spaces.")
+        swing_comment.reply("I couldn't find a valid number in your swing. Please reply to the original at-bat ping with a number between 1 and 1000 without any decimal spaces.")
+        return None
     else:
-        await swing_comment.reply('I found too many numbers in your swing. Please reply to the original AB ping with only one number included in your swing.')
-    return
+        swing_comment.reply('I found too many numbers in your swing. Please reply to the original AB ping with only one number included in your swing.')
+        return None
+
+
+def check_for_event(sheet_id, swing_comment):
+    if 'STEAL 2B' in swing_comment.body.upper():
+        set_event(sheet_id, 'STEAL 2B')
+    elif 'STEAL 3B' in swing_comment.body.upper():
+        set_event(sheet_id, 'STEAL 3B')
+    elif 'STEAL HOME' in swing_comment.body.upper():
+        set_event(sheet_id, 'STEAL HOME')
+    elif 'MULTISTEAL 3B' in swing_comment.body.upper():
+        set_event(sheet_id, 'MULTISTEAL 3B')
+    elif 'MULTISTEAL HOME' in swing_comment.body.upper():
+        set_event(sheet_id, 'MULTISTEAL HOME')
+    elif 'BUNT' in swing_comment.body.upper():
+        set_event(sheet_id, 'BUNT')
 
 
 def log_msg(message: str):
