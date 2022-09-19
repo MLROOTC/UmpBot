@@ -40,6 +40,20 @@ async def on_ready():
     print('ready')
 
 
+@bot.command(brief='Restarts the scoreboard task',
+             description='')
+async def restart_scoreboard(ctx):
+    scoreboard.restart()
+    await ctx.message.add_reaction('✅')
+
+
+@bot.command(brief='Restarts the scoreboard task',
+             description='')
+async def restart_gameplay(ctx):
+    ump_bot.restart()
+    await ctx.message.add_reaction('✅')
+
+
 @bot.command(brief='Otter plz',
              description='I genuinely did not think anybody would need help with this command.')
 async def otter(ctx):
@@ -56,7 +70,7 @@ async def reload(ctx, extension):
     await ctx.message.add_reaction('✅')
 
 
-@tasks.loop(seconds=60)
+@tasks.loop(seconds=5*60)
 async def scoreboard():
     embed = discord.Embed(title='League Scoreboard', color=discord.Colour.red())
     embed.set_thumbnail(url='https://media.discordapp.net/attachments/583735640177246222/892826404520071238/baseball_snoo.png')

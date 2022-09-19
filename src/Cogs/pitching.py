@@ -1,7 +1,10 @@
+import discord
 from discord.ext import commands
 import src.db_controller as db
 import src.Ump.robo_ump as robo_ump
 import pytz
+
+config_ini = 'config.ini'
 
 
 class Pitching(commands.Cog):
@@ -17,8 +20,35 @@ class Pitching(commands.Cog):
             await ctx.send('Not a valid deprecated_pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
-        pitch_src, swing_submitted = db.fetch_one('SELECT pitch_src, swing_submitted FROM pitchData WHERE  league=%s AND season=%s AND session=%s AND game_id=%s', game)
-        if swing_submitted:
+        league, season, session, game_id = game
+        pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one('SELECT pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE  league=%s AND season=%s AND session=%s AND game_id=%s', game)
+        if conditional_pitch_requested and not pitch_src:
+            player_id, player_name = db.fetch_one('SELECT playerID, playerName FROM playerData WHERE discordID=%s', (ctx.author.id, ))
+            sql = f'SELECT sheetID, threadURL, {home}Team FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
+            sheet_id, thread_url, team = db.fetch_one(sql, (league, season, session, game_id))
+            logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+            conditional_sub = f'**Pitcher:** {robo_ump.get_player_name(conditional_pitcher)}\n'
+            conditional_sub += f'**Notes:** {conditional_pitch_notes}\n'
+            conditional_sub += f'**Time:** {conditional_pitch_requested}\n'
+            if conditional_pitch_src:
+                conditional_sub += '**Pitch**: On file'
+            else:
+                conditional_sub += '**Pitch**: No swing on file'
+
+            embed = discord.Embed(title='Conditional Pitch Check',
+                                  description=f'{ctx.author.mention} has submitted a pitch but there is a conditional sub in place. Please check the conditions of the conditional sub and see whehter it should be used instead.',
+                                  color=discord.Color(value=int(color, 16)))
+            embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+            embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})')
+            embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
+            embed.add_field(name='Current Pitcher', value=player_name)
+            embed.add_field(name='Pitch Requested', value=pitch_requested)
+            embed.add_field(name='Conditional Pitch', value=conditional_sub, inline=False)
+
+            ump_hq = robo_ump.read_config(config_ini, 'Channels', 'ump_hq')
+            ump_hq = self.bot.get_channel(int(ump_hq))
+            await ump_hq.send(embed=embed)
+        if swing_submitted and pitch_src:
             swing_submitted = pytz.utc.localize(swing_submitted)
             if swing_submitted < ctx.message.created_at:
                 await ctx.send('Swing already submitted, cannot change pitch at this time.')

@@ -348,25 +348,29 @@ class Game(commands.Cog):
             await ctx.send(embed=embed)
         return
 
-    @commands.command()
+    @commands.command(brief='',
+                      description='')
     async def check_swing(self, ctx, reddit_comment: str):
         await robo_ump.get_swing_from_reddit(reddit_comment)
         return
 
-    @commands.command()
+    @commands.command(brief='',
+                      description='')
     async def do_result(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         pitch = await robo_ump.result(self.bot, league, season, session, game_id)
         await ctx.send(f'We did it reddit!')
 
-    @commands.command()
+    @commands.command(brief='',
+                      description='')
     async def setup_games(self, ctx, session: int):
         await ctx.send(f'Setting up games for session {session}...')
         await robo_ump.create_ump_sheets(self.bot, session)
         await ctx.send('Done.')
 
-    @commands.command()
+    @commands.command(brief='',
+                      description='')
     async def set_lineup(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)

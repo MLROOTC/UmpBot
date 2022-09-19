@@ -2,6 +2,7 @@ import configparser
 import datetime
 
 import discord
+from discord.ui import Button, View
 from dhooks import Webhook
 import re
 import src.assets as assets
@@ -252,7 +253,6 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
         current_list, swing_src = db.fetch_one(sql, (league, season, session, game_id))
         if current_list:
             current_list = current_list.split()
-
             current_pitcher = bot.get_user(int(discord_id))
             dm_channel = await current_pitcher.create_dm()
             pitch_src = await dm_channel.fetch_message(int(current_list[0]))
@@ -833,3 +833,7 @@ def write_config(filename, section, setting, value):
     ini_file.set(section, setting, value)
     with open(filename, 'w') as configfile:
         ini_file.write(configfile)
+
+
+async def conditional_pitch(bot, league, season, session, game_id):
+    return
