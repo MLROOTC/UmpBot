@@ -1,7 +1,7 @@
 import src.db_controller as db
 
 
-def generate_flavor_text(result_type, batter_name, fielding_positions):
+def generate_flavor_text(result_type, batter_name):
     text = ''
     return text
 

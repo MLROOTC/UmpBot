@@ -1236,7 +1236,7 @@ def read_config(filename, section, setting):
 
 async def reset(ctx, sheet_id):
     check_event = sheets.update_sheet(sheet_id, assets.calc_cell['event'], 'Swing')
-    check_pitch = sheets.update_sheet(sheet_id, assets.calc_cell['deprecated_pitch'], ' ')
+    check_pitch = sheets.update_sheet(sheet_id, assets.calc_cell['pitch'], ' ')
     check_swing = sheets.update_sheet(sheet_id, assets.calc_cell['swing'], ' ')
     if check_swing and check_pitch and check_event:
         await ctx.send('Calculator reset successfully.')

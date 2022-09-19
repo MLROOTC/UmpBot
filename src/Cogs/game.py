@@ -78,7 +78,8 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def conditional_swig(self, ctx, team: str, batter: discord.Member, *, notes: str):
+    async def conditional_swing(self, ctx, team: str, batter: discord.Member, *, notes: str):
+        await ctx.message.add_reaction('👍')
         season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         conditional_batter = robo_ump.get_player_from_discord(batter.id)
@@ -357,7 +358,7 @@ class Game(commands.Cog):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         pitch = await robo_ump.result(self.bot, league, season, session, game_id)
-        await ctx.send(f'The deprecated_pitch was {pitch}')
+        await ctx.send(f'We did it reddit!')
 
     @commands.command()
     async def setup_games(self, ctx, session: int):

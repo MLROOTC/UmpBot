@@ -9,7 +9,8 @@ class Pitching(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
+    @commands.command(brief='',
+                      description='')
     @commands.dm_only()
     async def pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:

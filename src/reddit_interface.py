@@ -47,7 +47,7 @@ async def edit_thread(thread_url, body):
         return False
 
 
-async def get_comment(comment_url):
+async def get_comment_async(comment_url):
     async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
                                 username=username, password=password) as reddit:
         return await reddit.comment(url=comment_url)
@@ -58,13 +58,18 @@ def get_comment(comment_url):
         return reddit.comment(url=comment_url)
 
 
+async def get_comment_url(comment_id):
+    with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent, username=username, password=password) as reddit:
+        return await reddit.comment(id=comment_id)
+
+
 async def get_thread_url(thread_url):
     async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
                                 username=username, password=password) as reddit:
         return await reddit.submission(Submission.id_from_url(thread_url))
 
 
-async def get_thread(submission_id):
+async def get_thread_async(submission_id):
     async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
                                 username=username, password=password) as reddit:
         return await reddit.submission(submission_id)

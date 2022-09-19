@@ -66,16 +66,22 @@ calc_cell = {
     'wnd_standings': 'Standings!F12:I15'
 }
 calc_cell2 = {
+    'after_swing': 'CalcBE!Q3:U3',
+    'at_bat': 'CalcBE!G3:K3',
     'away_team': 'Starting Lineups!B2',
     'boxscore': 'Box Score!A1:A77',
     'current_matchup': 'Calc2!C6:E6',
+    'discord_ping': 'Calc2!C23:E26',
     'event': 'Calc2!G10',
     'good_lineup': 'Starting Lineups!B18:E18',
     'home_team': 'Starting Lineups!E2',
     'matchup_info': 'CalcBE!V3:AB3',
-    'swing_pitch': 'Calc2!C10:E10',
+    'swing': 'Calc2!C10',
+    'pitch': 'Calc2!E10',
+    'play_number': 'Calc2!H3',
     'reddit_ping': 'Calc2!C16:G19',
-    'discord_ping': 'Calc2!C23:E26',
+    'result': 'CalcBE!L3:O3',
+    'result_embed': 'Calc2!J7:J16',
 }
 
 batting_types = {
@@ -176,3 +182,14 @@ valid_positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PH
 steal_types = ['STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MULTISTEAL 3B', 'MULTISTEAL HOME']
 
 event_types = ['Swing', 'Auto K', 'Auto BB', 'Bunt', 'Steal 2B', 'Steal 3B', 'Infield In', 'IBB']
+
+obc_state = {
+    0: 'Bases Empty',
+    1: 'Runner on First',
+    2: 'Runner on Second',
+    3: 'Runner on Third',
+    4: 'Runners on First and Second',
+    5: 'Runners on First and Third',
+    6: 'Runners on Second and Third',
+    7: 'Bases Loaded',
+}
