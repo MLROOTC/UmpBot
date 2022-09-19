@@ -13,10 +13,7 @@ async def gameplay_loop(bot):
 
 
 async def update_game(bot, league, season, session, game_id, state):
-    if state == 'WAITING FOR LINEUPS':
-        sheet_id, thread_url = db.fetch_one('SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
-        await reddit.edit_thread(thread_url, robo_ump.get_box_score(sheet_id))
-    elif state == 'WAITING FOR PITCH':
+    if state == 'WAITING FOR PITCH':
         sql = '''SELECT current_pitcher, pitch_requested, pitch_submitted, pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         current_pitcher, pitch_requested, pitch_submitted, pitch_src = db.fetch_one(sql, (league, season, session, game_id))
         if not pitch_requested:
@@ -31,8 +28,7 @@ async def update_game(bot, league, season, session, game_id, state):
         if swing_requested and swing_submitted:
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
     elif state == 'WAITING FOR RESULT':
-        # TODO
-        print('WAITING FOR RESULT')
+        robo_ump.result(bot, league, season, session, game_id)
     elif state == 'SUB REQUESTED':
         # TODO
         print('SUB REQUESTED')

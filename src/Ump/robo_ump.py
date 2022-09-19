@@ -240,15 +240,44 @@ def get_current_session(team):
 
 
 async def get_pitch(bot, player_id, league, season, session, game_id):
-    discord_id, reddit_name = db.fetch_one('''SELECT discordID, redditName FROM playerData WHERE playerID=%s''',
-                                           (player_id,))
+    discord_id, reddit_name = db.fetch_one('''SELECT discordID, redditName FROM playerData WHERE playerID=%s''', (player_id,))
+    inning = db.fetch_one('SELECT inning FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+    if 'T' in inning[0]:
+        home = 'home'
+    else:
+        home = 'away'
+
     if discord_id:
-        pitcher = bot.get_user(discord_id)
-        pitch_request_msg = await pitcher.send(
-            f'Pitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
-        db.update_database(
-            '''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''',
-            (pitch_request_msg.created_at, league, season, session, game_id))
+        sql = f'SELECT list_{home}, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+        current_list, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+        if current_list:
+            current_list = current_list.split()
+
+            current_pitcher = bot.get_user(int(discord_id))
+            dm_channel = await current_pitcher.create_dm()
+            pitch_src = await dm_channel.fetch_message(int(current_list[0]))
+            if not pitch_src.edited_at:
+                sql = '''UPDATE pitchData SET pitch_src=%s, pitch_requested=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                db.update_database(sql, (pitch_src.id, datetime.datetime.utcnow(), datetime.datetime.utcnow(), league, season, session, game_id))
+                await dm_channel.send(f'Using {await parse_pitch(bot, discord_id, pitch_src.id)}')
+                current_list = current_list[1:]
+                if len(current_list) == 0:
+                    await dm_channel.send('List depleted, use `.queue_pitch` to add more pitches.')
+                else:
+                    current_list = ' '.join(current_list)
+                    sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                    db.update_database(sql, (current_list, league, season, session, game_id))
+                if swing_src:
+                    set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+                else:
+                    await post_at_bat(bot, league, season, session, game_id)
+                    set_state(league, season, session, game_id, 'WAITING FOR SWING')
+            else:
+                edit_warning()
+        else:
+            pitcher = bot.get_user(discord_id)
+            pitch_request_msg = await pitcher.send(f'Pitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
+            db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
     else:
         print('Im not supporting reddit only pitchers')
     return
@@ -660,27 +689,6 @@ async def result(bot, league, season, session, game_id):
 
     # Set state to "WAITING FOR PITCH"
     set_state(league, season, session, game_id, 'WAITING FOR PITCH')
-
-
-def get_pitch_from_list(league, season, session, game_id, home):
-    # TODO
-    # if list exists, pick which one i need based on t/b of inning
-
-    # If still in same half inning
-    # update current pitcher/batter
-    # if list is not none
-    # get list from DB
-    # split list into array
-    # get first item in list
-    # check to see if edited
-    # write first element into pitch_src, and current time in both pitch_requested and pitch_submitted
-    # send msg saying "using pitch #"
-    # if len(list) > 0
-    # write list to db without first element
-    # else
-    # send message (list depleted)
-    # set state to "WAITING FOR PITCH"
-    return
 
 
 def set_event(sheet_id: str, event_type: str):

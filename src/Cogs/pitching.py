@@ -58,7 +58,7 @@ class Pitching(commands.Cog):
         current_list = current_list.split()
         print_list = '**Current List:**\n'
         for pitch in current_list:
-            print_list += f'{await robo_ump.parse_pitch(ctx, int(pitch))}\n'
+            print_list += f'{await robo_ump.parse_pitch(self.bot, ctx.author.id, int(pitch))}\n'
         await ctx.send(print_list)
 
     @commands.command(brief='',
