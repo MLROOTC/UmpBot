@@ -47,7 +47,8 @@ class Pitching(commands.Cog):
 
             ump_hq = robo_ump.read_config(config_ini, 'Channels', 'ump_hq')
             ump_hq = self.bot.get_channel(int(ump_hq))
-            await ump_hq.send(embed=embed)
+            await ump_hq.send(embed=embed, view=robo_ump.auto_buttons(self.bot, embed, league, season, session, game_id))
+            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
         if swing_submitted and pitch_src:
             swing_submitted = pytz.utc.localize(swing_submitted)
             if swing_submitted < ctx.message.created_at:
@@ -62,7 +63,10 @@ class Pitching(commands.Cog):
                 sql = '''UPDATE pitchData SET pitch_src=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
                 data = (ctx.message.id, ctx.message.created_at) + game
             db.update_database(sql, data)
-            robo_ump.set_state(game[0], game[1], game[2], game[3], 'WAITING FOR SWING')
+            if swing_submitted:
+                robo_ump.set_state(game[0], game[1], game[2], game[3], 'WAITING FOR RESULT')
+            else:
+                robo_ump.set_state(game[0], game[1], game[2], game[3], 'WAITING FOR SWING')
             await ctx.message.add_reaction('👍')
         return
 
@@ -149,6 +153,24 @@ class Pitching(commands.Cog):
             await ctx.message.add_reaction('👍')
         else:
             await ctx.send("How do I change something that doesn't exist??")
+
+    @commands.command(brief='',
+                      description='')
+    @commands.dm_only()
+    async def keep_pitch(self, ctx, keep: bool):
+        game, home = await robo_ump.fetch_game(ctx, self.bot)
+        state = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+        if state[0] == 'WAITING FOR PITCH CONFIRMATION':
+            db.update_database('UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s', ('WAITING FOR PITCH CONFIRMATION',) + game)
+            await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='',
+                      description='')
+    @commands.dm_only()
+    async def always_keep(self, ctx, keep: bool):
+        player_id = robo_ump.get_player_from_discord(ctx.author.id)
+        db.update_database('UPDATE playerData SET keep_pitch=%s WHERE playerID=%s', (keep, player_id))
+        await ctx.message.add_reaction('👍')
 
 
 async def setup(bot):

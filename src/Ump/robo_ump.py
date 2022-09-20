@@ -249,8 +249,8 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
         home = 'away'
 
     if discord_id:
-        sql = f'SELECT list_{home}, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
-        current_list, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+        sql = f'SELECT list_{home}, swing_src, state FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+        current_list, swing_src, state = db.fetch_one(sql, (league, season, session, game_id))
         if current_list:
             current_list = current_list.split()
             current_pitcher = bot.get_user(int(discord_id))
@@ -267,7 +267,7 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
                     current_list = ' '.join(current_list)
                     sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
                     db.update_database(sql, (current_list, league, season, session, game_id))
-                if swing_src:
+                if swing_src and state != 'PAUSED':
                     set_state(league, season, session, game_id, 'WAITING FOR RESULT')
                 else:
                     await post_at_bat(bot, league, season, session, game_id)
@@ -338,9 +338,7 @@ def get_swing_from_reddit(reddit_comment_url):
         swing = numbers_in_comment[0]
         if 0 < swing <= 1000:
             parent_thread = reddit.get_thread(swing_comment.submission)
-            league, season, session, game_id, sheet_id, state = db.fetch_one(
-                'SELECT league, season, session, gameID, sheetID, state FROM gameData WHERE threadURL=%s',
-                (parent_thread.url,))
+            league, season, session, game_id, sheet_id, state = db.fetch_one('SELECT league, season, session, gameID, sheetID, state FROM gameData WHERE threadURL=%s',(parent_thread.url,))
 
             # Check for steal/bunt/etc
             check_for_event(sheet_id, swing_comment)
@@ -349,9 +347,9 @@ def get_swing_from_reddit(reddit_comment_url):
             swing_submitted = datetime.datetime.utcfromtimestamp(swing_comment.created_utc)
             sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
-            if state != 'WAITING FOR RESULT':
+
+            if state != 'WAITING FOR RESULT' or state != 'PAUSED':
                 set_state(league, season, session, game_id, 'WAITING FOR RESULT')
-            # Set state to waiting for result
             return swing
 
     elif len(numbers_in_comment) == 0:
@@ -383,7 +381,7 @@ async def get_swing_from_reddit(reddit_comment_url):
             swing_submitted = datetime.datetime.utcfromtimestamp(swing_comment.created_utc)
             sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
-            if state != 'WAITING FOR RESULT':
+            if state != 'WAITING FOR RESULT' or state != 'PAUSED':
                 set_state(league, season, session, game_id, 'WAITING FOR RESULT')
             return swing
 
@@ -547,23 +545,26 @@ async def result(bot, league, season, session, game_id):
 
     # Have someone check if the conditional sub should be used instead
     if conditional_swing_requested:
-        conditional_batter = db.fetch_one('SELECT playerName FROM playerData WHERE playerID=%s', (conditional_batter,))
+        conditional_batter_name, conditional_batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_batter,))
+        current_batter_discord = bot.get_user(int(conditional_batter_discord))
+        conditional_batter_dm_channel = await current_batter_discord.create_dm()
+        conditional_swing_src = await conditional_batter_dm_channel.fetch_message(int(conditional_swing_src))
+
         title = 'Conditional Sub Check'
-        description = 'The swing is in, but a conditional sub is in place. Please check if the conditions for the sub applied BEFORE the swing came in.'
-        conditional_text = f'**Batter:** {conditional_batter[0]}\n**Notes:** {conditional_swing_notes}\n**Time:** {conditional_swing_requested}\n'
-        if conditional_swing_src:
-            conditional_text += '**Swing:** On file'
-        else:
-            conditional_text += '**Swing:** No swing on file'
+        description = 'The swing is in, but a conditional sub is in place. Please check if the conditions for the sub applied BEFORE the swing came in.\n\nIf it does, please put the sub in the ump sheet before proceeding.'
+
         embed = discord.Embed(title=title, description=description, colour=discord.Color(value=int(color, 16)))
         embed.set_author(name=f'[{league.upper()} {season}.{session}.{game_id}] {away_team} @ {home_team}',
                          icon_url=logo_url)
-        embed.add_field(name='Conditional Swing', value=conditional_text, inline=False)
+        embed.add_field(name='Conditional Batter', value=conditional_batter_name, inline=True)
+        embed.add_field(name='Conditional Batter ID', value=conditional_batter, inline=True)
+        embed.add_field(name='Condition', value=conditional_swing_notes, inline=True)
+        embed.add_field(name='Conditional Time Requested', value=conditional_swing_requested, inline=True)
+        embed.add_field(name='ConditionalTime Submitted', value=conditional_swing_src.created_at, inline=True)
         embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
         embed.add_field(name='Reddit Thread', value=f'[Link]({game_thread})', inline=True)
-
-        await ump_hq.send(embed=embed)
-
+        await ump_hq.send(embed=embed, view=auto_buttons(bot, embed, league, season, session, game_id))
+        set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
     # If it's a steal and there is a steal number, then use the steal number instead.
     if 'STEAL' in event:
         if steal_src:
@@ -578,8 +579,7 @@ async def result(bot, league, season, session, game_id):
         print(reddit_comment)
 
     # Get pitch from Discord
-    pitcher_name, pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s',
-                                                 (current_pitcher,))
+    pitcher_name, pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (current_pitcher,))
     current_pitcher = bot.get_user(int(pitcher_discord))
     dm_channel = await current_pitcher.create_dm()
     pitch_src = await dm_channel.fetch_message(int(pitch_src))
@@ -705,7 +705,7 @@ def set_swing_pitch(sheet_id, swing: int, pitch: int):
 def set_state(league, season, session, game_id, state):
     db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',
                        (state, league, season, session, game_id))
-    log_msg(f'{league.upper()} {season}.{session}.{game_id} state changed to {state}')
+    log_msg(f'{datetime.datetime.utcnow()} - {league.upper()} {season}.{session}.{game_id} state changed to {state}')
 
 
 async def starting_lineup(league, season, session, game_id):
@@ -835,5 +835,126 @@ def write_config(filename, section, setting, value):
         ini_file.write(configfile)
 
 
-async def conditional_pitch(bot, league, season, session, game_id):
-    return
+def auto_buttons(bot, embed, league, season, session, game_id):
+    conditional_batter_id = None
+    conditional_batter_name = None
+    conditional_swing_requested = None
+    conditional_swing_submitted = None
+    conditional_swing_src = None
+    conditional_pitcher_id = None
+    conditional_pitch_requested = None
+    conditional_pitch_submitted = None
+    conditional_pitch_src = None
+
+    for field in embed.fields:
+        if field.name == 'Ump Sheet':
+            sheet_id = field.value[46:-1]
+        if field.name == 'Conditional Batter':
+            conditional_batter_name = field.value
+        if field.name == 'Conditional Batter ID':
+            conditional_batter_id = field.value
+        if field.name == 'Conditional Time Requested':
+            conditional_swing_requested = field.value
+        if field.name == 'Conditional Time Submitted':
+            conditional_swing_submitted = field.value
+        if field.name == 'Conditional Pitcher ID':
+            conditional_batter_id = field.value
+        # TODO expand with conditional pitch stuff
+
+    auto_k = Button(label="Confirm Auto", style=discord.ButtonStyle.red)
+    auto_bb = Button(label="Confirm Auto", style=discord.ButtonStyle.red)
+    original_swing = Button(label="Use Original Swing", style=discord.ButtonStyle.green)
+    original_pitch = Button(label="Use Original Pitch", style=discord.ButtonStyle.green)
+    conditional_swing = Button(label="Use Conditional Sub", style=discord.ButtonStyle.green)
+    conditional_pitch = Button(label="Use Conditional Sub", style=discord.ButtonStyle.green)
+    no_auto = Button(label="No Auto", style=discord.ButtonStyle.gray)
+
+    async def auto_k_callback(interaction):
+        set_event(sheet_id, 'AUTO K')
+        set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+        await interaction.response.edit_message(view=None, embed=embed)
+        await interaction.followup.send(content='Auto K processed.')
+
+    async def auto_bb_callback(interaction):
+        set_event(sheet_id, 'AUTO BB')
+        set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+        await interaction.response.edit_message(view=None, embed=embed)
+        await interaction.followup.send(content='Auto BB processed.')
+
+    async def use_conditional_pitch_callback(interaction):
+        # TODO handle case where there is no conditional_pitch_submitted
+        matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
+        if matchup_info[3] == conditional_batter_id:
+            sql = 'UPDATE pitchData SET current_pitcher=%s, pitch_requested=%s, pitch_submitted=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+            db.update_database(sql, conditional_pitcher_id, conditional_pitch_requested, conditional_pitch_submitted, None, None, None, league, season, session, game_id)
+            set_state(league, season, session, game_id, 'WAITING FOR SWING')
+            await interaction.response.edit_message(view=None, embed=embed)
+            await interaction.followup.send(content='Using conditional pitch.')
+        else:
+            interaction.followup.send('Pitcher has not been updated on the ump helper sheet. ')
+        return
+
+    async def use_conditional_swing_callback(interaction):
+        # TODO
+        matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
+        if matchup_info[0] == conditional_batter_id:
+            sql = 'UPDATE pitchData SET current_batter=%s, swing_requested=%s, swing_submitted=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+            db.update_database(sql, conditional_batter_id, conditional_swing_requested, conditional_swing_submitted, None, None, None, league, season, session, game_id)
+            current_pitcher = db.fetch_one('SELECT current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+            current_pitcher_discord, keep_pitch = db.fetch_one('SELECT discordID, keep_pitch FROM playerData WHERE playerID=%s', current_pitcher)
+            if keep_pitch:
+                set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+            else:
+                prompt = f'A sub has been requested. To keep your pitch, use `.keep_pitch`. To change your pitch use `.pitch ###`.'
+                current_pitcher = bot.get_user(int(current_pitcher_discord))
+                dm_channel = await current_pitcher.create_dm()
+        #     if global keep pitch
+        #         set state to waiting for result
+        #     else
+        #         current_pitcher send "there's a conditional sub, keep or change pitch"
+        #         set state to 'waiting for pitch confirmation'
+        # else send a response that player hasn't been updated yet
+        return
+
+    async def use_original_pitch_callback(interaction):
+        set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
+        await interaction.response.edit_message(content='Conditional sub does not apply.', view=None)
+        return
+
+    async def use_original_swing_callback(interaction):
+        set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
+        await interaction.response.edit_message(content='Conditional sub does not apply.', view=None)
+        return
+
+    async def no_auto_callback(interaction):
+        await interaction.response.edit_message(view=None, embed=embed)
+        await interaction.followup.send(content='Auto request rejected.')
+
+    view = View(timeout=None)
+
+    if 'Auto K' in embed.title:
+        auto_k.callback = auto_k_callback
+        conditional_swing.callback = use_conditional_swing_callback
+        no_auto.callback = no_auto_callback
+        view.add_item(conditional_swing)
+        view.add_item(auto_k)
+        view.add_item(no_auto)
+    elif 'Auto BB' in embed.title:
+        auto_bb.callback = auto_bb_callback
+        conditional_pitch.callback = use_conditional_pitch_callback
+        no_auto.callback = no_auto_callback
+        view.add_item(conditional_pitch)
+        view.add_item(auto_bb)
+        view.add_item(no_auto)
+    elif 'Conditional Pitch' in embed.title:
+        original_pitch.callback = use_original_pitch_callback
+        conditional_pitch.callback = use_conditional_pitch_callback
+        view.add_item(original_pitch)
+        view.add_item(conditional_pitch)
+    elif 'Conditional Swing' in embed.title:
+        original_swing.callback = use_original_swing_callback
+        conditional_swing.callback = use_conditional_swing_callback
+        view.add_item(original_swing)
+        view.add_item(conditional_swing)
+
+    return view
