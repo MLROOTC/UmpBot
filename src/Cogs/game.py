@@ -30,7 +30,8 @@ class Game(commands.Cog):
         data = (ctx.message.id, ctx.message.created_at) + game
         league, season, session, game_id = game
         db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
-        state, pitch_src = db.fetch_one('SELECT state, pitch_src FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+        state, = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+        pitch_src, = db.fetch_one('SELECT pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
         await ctx.message.add_reaction('👍')
         # TODO set state to 'waiting for result' if not paused
         if pitch_src and state != 'PAUSED':
@@ -123,7 +124,7 @@ class Game(commands.Cog):
             await ctx.send('Not a valid pitch dum dum.')
             return
         game = await robo_ump.fetch_game_conditional_pitch(ctx, self.bot)
-        data = (ctx.message.id, ctx.message.created_at) + game
+        data = (ctx.message.id,) + game
         db.update_database('''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         await ctx.message.add_reaction('👍')
 
@@ -132,9 +133,10 @@ class Game(commands.Cog):
     async def conditional_pitch(self, ctx, team: str, batter: discord.Member, *, notes: str):
         season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
+        league, season, session, game_id = game
         conditional_pitcher = robo_ump.get_player_from_discord(batter.id)
         conditional_pitch_requested = ctx.message.created_at
-        data = (conditional_pitcher, conditional_pitch_requested, notes) + game
+        data = (conditional_pitcher, conditional_pitch_requested, notes, league, season, session, game_id)
         sql = '''UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         db.update_database(sql, data)
         await batter.send(
@@ -289,8 +291,7 @@ class Game(commands.Cog):
                 description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   {outs} Out'
                 embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
 
-            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'CONFIRM PITCH']:
-                # Get match-up names and types
+            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCH CONFIRMATION', 'WAITING FOR UMP CONFIRMATION']:
                 matchup_names = sheets.read_sheet(sheet_id, assets.calc_cell2['current_matchup'])
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
                 if matchup_names:
@@ -444,6 +445,14 @@ class Game(commands.Cog):
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         robo_ump.log_msg(f'{datetime.datetime.now()} - {ctx.author.name} paused game {league} {season}.{session}.{game_id}')
         robo_ump.set_state(league, season, session, game_id, 'PAUSED')
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='',
+                      description='')
+    async def set_state(self, ctx, team: str, *, state: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        robo_ump.set_state(league, season, session, game_id, state.upper())
         await ctx.message.add_reaction('👍')
 
 
