@@ -90,9 +90,7 @@ async def edit_warning():
 async def fetch_game(ctx, bot):
     pitcher_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
     if pitcher_id:
-        active_games = db.fetch_data(
-            '''SELECT league, season, session, game_id, home_pitcher, away_pitcher FROM pitchData WHERE (home_pitcher=%s OR away_pitcher=%s)''',
-            (pitcher_id[0], pitcher_id[0]))
+        active_games = db.fetch_data('''SELECT league, season, session, game_id, home_pitcher, away_pitcher FROM pitchData WHERE (home_pitcher=%s OR away_pitcher=%s)''', (pitcher_id[0], pitcher_id[0]))
         if not active_games:
             await ctx.send("I couldn't find any active games you are pitching in.")
             return None
@@ -107,9 +105,7 @@ async def fetch_game(ctx, bot):
             prompt = f'**Multiple games found. Please select a game:** \n```'
             for i in range(len(active_games)):
                 game = active_games[i]
-                game_data = db.fetch_one(
-                    '''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',
-                    game[0:4])
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',game[0:4])
                 prompt += f'{i + 1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
             prompt += '```'
             await ctx.send(prompt)
@@ -123,6 +119,46 @@ async def fetch_game(ctx, bot):
                 return active_games[game_number - 1][0:4], 'home'
             elif active_games[game_number - 1][5] == pitcher_id[0]:
                 return active_games[game_number - 1][0:4], 'away'
+            else:
+                await ctx.send('Are you even pitching right now??')
+    else:
+        await ctx.send(
+            "I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
+        return None
+
+
+async def fetch_game_conditional_pitch(ctx, bot):
+    pitcher_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
+    if pitcher_id:
+        active_games = db.fetch_data('''SELECT league, season, session, game_id, home_pitcher, away_pitcher FROM pitchData WHERE conditional_pitcher=%s''', (pitcher_id[0], pitcher_id[0]))
+        if not active_games:
+            await ctx.send("I couldn't find any active games you are pitching in.")
+            return None
+        if len(active_games) == 1:
+            if active_games[0][4] == pitcher_id[0]:
+                return active_games[0][0:4]
+            elif active_games[0][5] == pitcher_id[0]:
+                return active_games[0][0:4]
+            else:
+                await ctx.send('Are you even pitching right now??')
+        else:
+            prompt = f'**Multiple games found. Please select a game:** \n```'
+            for i in range(len(active_games)):
+                game = active_games[i]
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',game[0:4])
+                prompt += f'{i + 1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
+            prompt += '```'
+            await ctx.send(prompt)
+
+            def wait_for_response(msg):
+                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
+
+            game_number = await bot.wait_for('message', check=wait_for_response)
+            game_number = int(game_number.content)
+            if active_games[game_number - 1][4] == pitcher_id[0]:
+                return active_games[game_number - 1][0:4]
+            elif active_games[game_number - 1][5] == pitcher_id[0]:
+                return active_games[game_number - 1][0:4]
             else:
                 await ctx.send('Are you even pitching right now??')
     else:
@@ -168,7 +204,47 @@ async def fetch_game_swing(ctx, bot):
             elif active_games[game_number - 1][5] == batter_id[0]:
                 return active_games[game_number - 1][0:4]
             else:
+                await ctx.send('You aren\'t up to bat anywhere.')
+    else:
+        await ctx.send(
+            "I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
+        return None
+
+
+async def fetch_game_conditional_swing(ctx, bot):
+    batter_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
+    if batter_id:
+        active_games = db.fetch_data('''SELECT league, season, session, game_id, current_batter FROM pitchData WHERE conditional_batter=%s''', (batter_id[0],))
+        if not active_games:
+            await ctx.send("You aren't up to bat anywhere.")
+            return None
+        if len(active_games) == 1:
+            if active_games[0][4] == batter_id[0]:
+                return active_games[0][0:4]
+            elif active_games[0][5] == batter_id[0]:
+                return active_games[0][0:4]
+            else:
                 await ctx.send('Are you even pitching right now??')
+        else:
+            prompt = f'**Multiple games found. Please select a game:** \n```'
+            for i in range(len(active_games)):
+                game = active_games[i]
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',game[0:4])
+                prompt += f'{i + 1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
+            prompt += '```'
+            await ctx.send(prompt)
+
+            def wait_for_response(msg):
+                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
+
+            game_number = await bot.wait_for('message', check=wait_for_response)
+            game_number = int(game_number.content)
+            if active_games[game_number - 1][4] == batter_id[0]:
+                return active_games[game_number - 1][0:4]
+            elif active_games[game_number - 1][5] == batter_id[0]:
+                return active_games[game_number - 1][0:4]
+            else:
+                await ctx.send('You aren\'t up to bat anywhere.')
     else:
         await ctx.send(
             "I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
@@ -189,7 +265,7 @@ def fetch_game_team(team, season, session):
 
 
 def get_active_games():
-    sql = '''SELECT league, season, session, gameID, state FROM gameData WHERE complete=%s'''
+    sql = '''SELECT league, season, session, gameID, state FROM gameData WHERE complete=%s AND state IS NOT NULL'''
     return db.fetch_data(sql, (0,))
 
 
@@ -242,15 +318,15 @@ def get_current_session(team):
 
 async def get_pitch(bot, player_id, league, season, session, game_id):
     discord_id, reddit_name = db.fetch_one('''SELECT discordID, redditName FROM playerData WHERE playerID=%s''', (player_id,))
-    inning = db.fetch_one('SELECT inning FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
-    if 'T' in inning[0]:
+    sheet_id, inning, state = db.fetch_one('SELECT sheetID, inning, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+    if 'T' in inning:
         home = 'home'
     else:
         home = 'away'
 
     if discord_id:
-        sql = f'SELECT list_{home}, swing_src, state FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
-        current_list, swing_src, state = db.fetch_one(sql, (league, season, session, game_id))
+        sql = f'SELECT list_{home}, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+        current_list, swing_src = db.fetch_one(sql, (league, season, session, game_id))
         if current_list:
             current_list = current_list.split()
             current_pitcher = bot.get_user(int(discord_id))
@@ -275,8 +351,11 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
             else:
                 edit_warning()
         else:
+            ab_text = sheets.read_sheet(sheet_id, assets.calc_cell2['pitcher_ab'])
+            ab_text = f'{ab_text[0][0]}\n{ab_text[1][0]}\n{ab_text[2][0]}'
             pitcher = bot.get_user(discord_id)
-            pitch_request_msg = await pitcher.send(f'Pitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
+            pitch_request_msg = await pitcher.send(f'{ab_text}\r\nPitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
+
             db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
     else:
         print('Im not supporting reddit only pitchers')
@@ -607,7 +686,8 @@ async def result(bot, league, season, session, game_id):
         swing_number = await get_swing_from_reddit(f'https://www.reddit.com{swing_comment.permalink}')
 
     # Write pitch and swing to ump sheets
-    log_msg(f'Resulting AB for {league.upper()} {season}.{session}.{game_id} - {away_team} @ {home_team}...')
+    log_msg(f''
+            f'ing AB for {league.upper()} {season}.{session}.{game_id} - {away_team} @ {home_team}...')
     set_swing_pitch(sheet_id, swing_number, pitch_number)
 
     # Get new game state from sheet

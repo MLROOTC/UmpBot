@@ -14,6 +14,7 @@ async def gameplay_loop(bot):
 
 async def update_game(bot, league, season, session, game_id, state):
     if state == 'WAITING FOR PITCH':
+        sql = '''SELECT current_pitcher, pitch_requested, pitch_submitted, pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         current_pitcher, pitch_requested, pitch_submitted, pitch_src = db.fetch_one(sql, (league, season, session, game_id))
         if not pitch_requested:
             await robo_ump.get_pitch(bot, current_pitcher, league, season, session, game_id)
@@ -43,4 +44,26 @@ async def update_game(bot, league, season, session, game_id, state):
     elif state == 'COMPLETE':
         # TODO
         print('COMPLETE')
+    return
+
+
+async def startup_loop(bot):
+    active_games = robo_ump.get_active_games()
+    for game in active_games:
+        league, season, session, game_id, state = game
+        await prompt_for_conditionals(bot, league, season, session, game_id)
+    return
+
+
+async def prompt_for_conditionals(bot, league, season, session, game_id):
+    sql = '''SELECT conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+    conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src = db.fetch_one(sql, (league, season, session, game_id))
+    if conditional_swing_requested and not conditional_swing_src:
+        conditional_batter_discord, = db.fetch_one('SELECT discordID FROM playerData WHERE playerID=%s', (conditional_batter,))
+        conditional_batter_discord = bot.get_user(int(conditional_batter_discord))
+        await conditional_batter_discord.send(f"I've been rebooted! If you previously replied with a swing I didn't catch it.  Please use `.submit_conditional_swing ###` to submit your swing.")
+    if conditional_pitch_requested and not conditional_pitch_src:
+        conditional_pitcher_discord, = db.fetch_one('SELECT discordID FROM playerData WHERE playerID=%s', (conditional_pitcher,))
+        conditional_pitcher_discord = bot.get_user(int(conditional_pitcher_discord))
+        await conditional_pitcher_discord.send(f"I've been rebooted! If you previously replied with a pitch I didn't catch it.  Please use `.submit_conditional_pitch ###` to submit your pitch.")
     return

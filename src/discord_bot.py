@@ -36,6 +36,7 @@ async def on_ready():
         if filename.endswith('.py'):
             await bot.load_extension(f'Cogs.{filename[:-3]}')
     # scoreboard.start()
+    await gameplay_loop.startup_loop(bot)
     ump_bot.start()
     print('ready')
 

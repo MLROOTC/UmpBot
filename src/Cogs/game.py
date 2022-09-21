@@ -24,7 +24,7 @@ class Game(commands.Cog):
     @commands.dm_only()
     async def dm_swing(self, ctx, swing: int):
         if not 0 < swing <= 1000:
-            await ctx.send('Not a valid deprecated_pitch dum dum.')
+            await ctx.send('Not a valid pitch dum dum.')
             return
         game = await robo_ump.fetch_game_swing(ctx, self.bot)
         data = (ctx.message.id, ctx.message.created_at) + game
@@ -36,14 +36,13 @@ class Game(commands.Cog):
         if pitch_src and state != 'PAUSED':
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         robo_ump.log_msg(f'{ctx.author.mention} swung via DM for {game[0]} {game[1]}.{game[2]}.{game[3]} ')
-        return
 
     @commands.command(brief='',
                       description='')
     @commands.dm_only()
     async def gm_steal(self, ctx, team: str, swing: int, *, steal_type: str):
         if not 0 < swing <= 1000:
-            await ctx.send('Not a valid deprecated_pitch dum dum.')
+            await ctx.send('Not a valid pitch dum dum.')
             return
         if not steal_type.upper() in assets.steal_types:
             await ctx.send(f'Not a valid steal type. Valid types are \n```{assets.steal_types}```')
@@ -108,6 +107,28 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
+    async def submit_conditional_swing(self, ctx, swing: int):
+        if not 0 < swing <= 1000:
+            await ctx.send('Not a valid pitch dum dum.')
+            return
+        game = await robo_ump.fetch_game_conditional_swing(ctx, self.bot)
+        data = (ctx.message.id, ctx.message.created_at) + game
+        db.update_database('''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='',
+                      description='')
+    async def submit_conditional_pitch(self, ctx, swing: int):
+        if not 0 < swing <= 1000:
+            await ctx.send('Not a valid pitch dum dum.')
+            return
+        game = await robo_ump.fetch_game_conditional_pitch(ctx, self.bot)
+        data = (ctx.message.id, ctx.message.created_at) + game
+        db.update_database('''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='',
+                      description='')
     async def conditional_pitch(self, ctx, team: str, batter: discord.Member, *, notes: str):
         season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
@@ -117,17 +138,17 @@ class Game(commands.Cog):
         sql = '''UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         db.update_database(sql, data)
         await batter.send(
-            f'{ctx.author.mention} has requested a conditional deprecated_pitch for {team.upper()}. Please reply with a deprecated_pitch number to be used at the following condition: {notes}')
+            f'{ctx.author.mention} has requested a conditional pitch for {team.upper()}. Please reply with a pitch number to be used at the following condition: {notes}')
 
         def wait_for_response(msg):
             return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
 
-        await ctx.send('Conditional deprecated_pitch request sent to pitcher.')
+        await ctx.send('Conditional pitch request sent to pitcher.')
         conditional_pitch = await self.bot.wait_for('message', check=wait_for_response)
         sql = '''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         db.update_database(sql, (conditional_pitch.id,) + game)
         await conditional_pitch.add_reaction('👍')
-        await ctx.send('Conditional deprecated_pitch submitted.')
+        await ctx.send('Conditional pitch submitted.')
 
     @commands.command(brief='',
                       description='')
@@ -330,16 +351,16 @@ class Game(commands.Cog):
                     embed.add_field(name='Swing', value='-', inline=True)
                 if conditional_pitch_requested:
                     if conditional_pitch_src:
-                        embed.add_field(name='Conditional Pitch', value='Conditional deprecated_pitch submitted.', inline=False)
+                        embed.add_field(name='Conditional Pitch', value='Conditional pitch submitted', inline=False)
                     else:
-                        embed.add_field(name='Conditional Pitch', value='Waiting for deprecated_pitch.', inline=False)
+                        embed.add_field(name='Conditional Pitch', value='Waiting for pitch', inline=False)
                 else:
                     embed.add_field(name='Conditional Pitch', value='-', inline=False)
                 if conditional_swing_requested:
                     if conditional_swing_src:
-                        embed.add_field(name='Conditional Swing', value='Conditional swing submitted.', inline=True)
+                        embed.add_field(name='Conditional Swing', value='Conditional swing submitted', inline=True)
                     else:
-                        embed.add_field(name='Conditional Swing', value='Waiting for swing.', inline=True)
+                        embed.add_field(name='Conditional Swing', value='Waiting for swing', inline=True)
                 else:
                     embed.add_field(name='Conditional Swing', value='-', inline=True)
             elif state in ['FINALIZING', 'COMPLETE']:

@@ -78,6 +78,7 @@ calc_cell2 = {
     'matchup_info': 'CalcBE!V3:AB3',
     'swing': 'Calc2!C10',
     'pitch': 'Calc2!E10',
+    'pitcher_ab': 'Calc2!C24:26',
     'play_number': 'Calc2!H3',
     'reddit_ping': 'Calc2!C16:G19',
     'result': 'CalcBE!L3:O3',

@@ -17,7 +17,7 @@ class Pitching(commands.Cog):
     @commands.dm_only()
     async def pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
-            await ctx.send('Not a valid deprecated_pitch dum dum.')
+            await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         league, season, session, game_id = game
@@ -75,7 +75,7 @@ class Pitching(commands.Cog):
     @commands.dm_only()
     async def queue_pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
-            await ctx.send('Not a valid deprecated_pitch dum dum.')
+            await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         sql = f'''SELECT list_{home} FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
@@ -128,7 +128,7 @@ class Pitching(commands.Cog):
     @commands.dm_only()
     async def change_pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
-            await ctx.send('Not a valid deprecated_pitch dum dum.')
+            await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         current_pitch = db.fetch_one('''SELECT pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', game)
@@ -144,7 +144,7 @@ class Pitching(commands.Cog):
     @commands.dm_only()
     async def steal_number(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
-            await ctx.send('Not a valid deprecated_pitch dum dum.')
+            await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         steal_number = db.fetch_one('''SELECT steal_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', game)
