@@ -30,19 +30,14 @@ async def update_game(bot, league, season, session, game_id, state):
     elif state == 'WAITING FOR RESULT':
         await robo_ump.result(bot, league, season, session, game_id)
     elif state == 'SUB REQUESTED':
-        # TODO
         print('SUB REQUESTED')
     elif state == 'AUTO REQUESTED':
-        # TODO
         print('AUTO REQUESTED')
     elif state == 'CONFIRM PITCH':
-        # TODO
         print('CONFIRM PITCH')
     elif state == 'FINALIZING':
-        # TODO
         print('FINALIZING')
     elif state == 'COMPLETE':
-        # TODO
         print('COMPLETE')
     return
 

@@ -3,7 +3,7 @@ import datetime
 
 import discord
 from discord.ext import commands
-from discord.ui import Button, View
+from discord.ui import Button, View, Select
 import src.assets as assets
 import src.db_controller as db
 import src.Ump.robo_ump as robo_ump
@@ -33,7 +33,6 @@ class Game(commands.Cog):
         state, = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
         pitch_src, = db.fetch_one('SELECT pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
         await ctx.message.add_reaction('👍')
-        # TODO set state to 'waiting for result' if not paused
         if pitch_src and state != 'PAUSED':
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         robo_ump.log_msg(f'{ctx.author.mention} swung via DM for {game[0]} {game[1]}.{game[2]}.{game[3]} ')
@@ -154,56 +153,135 @@ class Game(commands.Cog):
 
     @commands.command(brief='',
                       description='')
-    async def request_sub(self, ctx, team: str, position: str, *, players: str):
+    async def request_sub(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-        players = players.split(':')
-        player_out = players[0]
-        player_in = players[1]
-        if position.upper() not in assets.valid_positions:
-            await ctx.send(f'{position.upper()} is not a valid position')
+        game = robo_ump.fetch_game_team(team, season, session)
+        logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+        thread_url, sheet_id, home_team, away_team, state = db.fetch_one('SELECT threadURL, sheetID, homeTeam, awayTeam, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+        if team.upper() == home_team:
+            sub_list = sheets.read_sheet(sheet_id, assets.calc_cell2['home_sub_list'])
+        elif team.upper() == away_team:
+            sub_list = sheets.read_sheet(sheet_id, assets.calc_cell2['away_sub_list'])
+        else:
+            await ctx.message.add_reaction('⁉')
             return
-        player_out = await robo_ump.get_player(ctx, player_out)
-        player_in = await robo_ump.get_player(ctx, player_in)
-        if player_out and player_in:
-            game = robo_ump.fetch_game_team(team, season, session)
-            logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
-            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
-            embed = discord.Embed(title='Substitution Request',
-                                  description=f'{ctx.author.mention} has requested the following substitution.',
-                                  color=discord.Color(value=int(color, 16)))
-            embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
-            embed.add_field(name='Player Out', value=player_out[1])
-            embed.add_field(name='Player In', value=player_in[1])
-            embed.add_field(name='Position', value=position)
-            embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
-            await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed, self.bot, league, season, session, game_id))
+        sub_list_dropdown = []
+        positions_select = []
+        for sub in sub_list:
+            sub_list_dropdown.append(discord.SelectOption(label=sub[0]))
+        for pos in assets.valid_positions:
+            positions_select.append(discord.SelectOption(label=pos))
+        player_out_select = Select(placeholder='Player Out', options=sub_list_dropdown)
+        player_in_select = Select(placeholder='Player In', options=sub_list_dropdown)
+        positions_select = Select(placeholder='Position', options=positions_select)
+        confirm = Button(label="Submit Request", style=discord.ButtonStyle.green)
+        cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
+
+        async def player_out_callback(interaction):
+            embed.add_field(name='Player Out', value=player_out_select.values[0])
+            await interaction.response.edit_message(embed=embed)
+
+        async def player_in_callback(interaction):
+            embed.add_field(name='Player In', value=player_in_select.values[0])
+            await interaction.response.edit_message(embed=embed)
+
+        async def position_callback(interaction):
+            embed.add_field(name='Position', value=positions_select.values[0])
+            await interaction.response.edit_message(embed=embed)
+
+        async def send_request(interaction):
+            await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(sheet_id, embed, league, season, session, game_id))
+            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
+            await interaction.response.edit_message(content='Request sent.', view=None, embed=embed)
+
+        async def cancel_request(interaction):
+            await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
+            return
+
+        player_out_select.callback = player_out_callback
+        player_in_select.callback = player_in_callback
+        positions_select.callback = position_callback
+        confirm.callback = send_request
+        cancel.callback = cancel_request
+
+        view = View(timeout=None)
+        view.add_item(player_out_select)
+        view.add_item(player_in_select)
+        view.add_item(positions_select)
+        view.add_item(confirm)
+        view.add_item(cancel)
+
+        embed = discord.Embed(title='Substitution Request', description=f'{ctx.author.mention} has requested the following substitution.\n\nPlease update the **Subs** tab on the Ump Helper sheet.', color=discord.Color(value=int(color, 16)))
+        embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+        embed.add_field(name='State', value=state, inline=False)
+        await ctx.send(content='Use the drop down menus to select the player you want subbed out, the player you want subbed in, and their new position. You can submit multiple substitutions in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
 
     @commands.command(brief='',
                       description='')
-    async def request_position_change(self, ctx, team: str, old_pos: str, new_pos: str, *, player: str,):
-        if old_pos.upper() not in assets.valid_positions:
-            await ctx.send(f'{old_pos.upper()} is not a valid position')
+    async def request_position_change(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        game = robo_ump.fetch_game_team(team, season, session)
+        logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+        thread_url, sheet_id, home_team, away_team, state = db.fetch_one('SELECT threadURL, sheetID, homeTeam, awayTeam, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s',game)
+        if team.upper() == home_team:
+            sub_list = sheets.read_sheet(sheet_id, assets.calc_cell2['home_sub_list'])
+        elif team.upper() == away_team:
+            sub_list = sheets.read_sheet(sheet_id, assets.calc_cell2['away_sub_list'])
+        else:
+            await ctx.message.add_reaction('⁉')
             return
-        if new_pos.upper() not in assets.valid_positions:
-            await ctx.send(f'{new_pos.upper()} is not a valid position')
+        sub_list_dropdown = []
+        positions_select = []
+        for sub in sub_list:
+            sub_list_dropdown.append(discord.SelectOption(label=sub[0]))
+        for pos in assets.valid_positions:
+            positions_select.append(discord.SelectOption(label=pos))
+        player_select = Select(placeholder='Player', options=sub_list_dropdown)
+        old_pos_select = Select(placeholder='Old Position', options=positions_select)
+        new_pos_select = Select(placeholder='New Position', options=positions_select)
+        confirm = Button(label="Submit Request", style=discord.ButtonStyle.green)
+        cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
+
+        async def player_callback(interaction):
+            embed.add_field(name='Player', value=player_select.values[0])
+            await interaction.response.edit_message(embed=embed)
+
+        async def old_position_callback(interaction):
+            embed.add_field(name='Old Position', value=old_pos_select.values[0])
+            await interaction.response.edit_message(embed=embed)
+
+        async def new_position_callback(interaction):
+            embed.add_field(name='New Position', value=new_pos_select.values[0])
+            await interaction.response.edit_message(embed=embed)
+
+        async def send_request(interaction):
+            await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(sheet_id, embed, league, season, session, game_id))
+            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
+            await interaction.response.edit_message(content='Request sent.', view=None, embed=embed)
+
+        async def cancel_request(interaction):
+            await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
             return
-        player = await robo_ump.get_player(ctx, player)
-        if player:
-            season, session = robo_ump.get_current_session(team)
-            league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-            game = robo_ump.fetch_game_team(team, season, session)
-            logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
-            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
-            embed = discord.Embed(title='Position Change Request',
-                                  description=f'{ctx.author.mention} has requested the following position change.',
-                                  color=discord.Color(value=int(color, 16)))
-            embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
-            embed.add_field(name='Player', value=f'{player[1]} ({player[7]}/{player[8]}/{player[9]})', inline=False)
-            embed.add_field(name='Old Position', value=old_pos.upper(), inline=True)
-            embed.add_field(name='New Position', value=new_pos.upper(), inline=True)
-            embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
-            await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed, self.bot, league, season, session, game_id))
+
+        player_select.callback = player_callback
+        old_pos_select.callback = old_position_callback
+        new_pos_select.callback = new_position_callback
+        confirm.callback = send_request
+        cancel.callback = cancel_request
+
+        view = View(timeout=None)
+        view.add_item(player_select)
+        view.add_item(old_pos_select)
+        view.add_item(new_pos_select)
+        view.add_item(confirm)
+        view.add_item(cancel)
+
+        embed = discord.Embed(title='Position Change Request', description=f'{ctx.author.mention} has requested the following position change.\n\nPlease update the **Subs** tab on the Ump Helper sheet.', color=discord.Color(value=int(color, 16)))
+        embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+        embed.add_field(name='State', value=state, inline=False)
+        await ctx.send(content='Use the drop down menus to select the relevant player, their current position, and their new position. You can submit multiple position changes in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
         return None
 
     @commands.command(brief='',
@@ -481,6 +559,5 @@ def standard_buttons(channel, embed, bot, league, season, session, game_id):
     view.add_item(confirm)
     view.add_item(cancel)
     return view
-
 
 

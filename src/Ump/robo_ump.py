@@ -82,8 +82,12 @@ async def create_ump_sheets(bot, session: int):
     return
 
 
-async def edit_warning():
-    # TODO
+async def edit_warning(bot, league, season, session, game_id):
+    # TODO Ping ump warden (ump council?) when someone edits a swing/pitch
+    ump_hq = read_config(config_ini, 'Channels', 'ump_hq')
+    ump_hq = bot.get_channel(int(ump_hq))
+    await ump_hq.send('SWING HAS BEEN EDITED MODS PLS BAN')
+    set_state(league, season, session, game_id, 'PAUSED')
     return
 
 
@@ -498,7 +502,7 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
     play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0]
     pa_id = get_pa_id(league, season, session, game_id, play_number[0])
 
-    # TODO
+    # TODO finish log_result
     inning_id = None
     old_result = None
     result_at_neutral = None
@@ -650,7 +654,6 @@ async def result(bot, league, season, session, game_id):
         for line in reddit_starter:
             if len(line) > 0:
                 reddit_comment += f'    {line[0]}  \n'
-        print(reddit_comment)
 
     # Get pitch from Discord
     pitcher_name, pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (current_pitcher,))
@@ -658,10 +661,7 @@ async def result(bot, league, season, session, game_id):
     dm_channel = await current_pitcher.create_dm()
     pitch_src = await dm_channel.fetch_message(int(pitch_src))
     if pitch_src.edited_at:
-        # TODO
-        edit_warning()
-        await ump_hq.send('SWING HAS BEEN EDITED MODS PLS BAN')
-        set_state(league, season, session, game_id, 'PAUSED')
+        edit_warning(bot, league, season, session, game_id)
         return None
     else:
         pitch_number = int(re.sub(regex, '', pitch_src.content))
@@ -673,10 +673,7 @@ async def result(bot, league, season, session, game_id):
     else:
         swing_comment = await reddit.get_comment_url(swing_src)
         if swing_comment.edited:
-            # TODO
-            edit_warning()
-            await ump_hq.send('SWING HAS BEEN EDITED MODS PLS BAN')
-            set_state(league, season, session, game_id, 'PAUSED')
+            edit_warning(bot, league, season, session, game_id)
             return None
         swing_number = await get_swing_from_reddit(f'https://www.reddit.com{swing_comment.permalink}')
 
@@ -1038,4 +1035,23 @@ def auto_buttons(bot, embed, league, season, session, game_id):
         view.add_item(original_swing)
         view.add_item(conditional_swing)
 
+    return view
+
+
+def umpdate_buttons(sheet_id, embed, league, season, session, game_id):
+    ump_sheet = Button(label="Ump Sheet", style=discord.ButtonStyle.link, url=f'https://docs.google.com/spreadsheets/d/{sheet_id}')
+    submit = Button(label="Umpdate", style=discord.ButtonStyle.blurple)
+
+    async def submit_callback(interaction):
+        for field in embed.fields:
+            if field.name == 'State':
+                set_state(league, season, session, game_id, field.value)
+                continue
+        await interaction.response.edit_message(content='Sub processed.', view=None, embed=embed)
+        return
+
+    submit.callback = submit_callback
+    view = View(timeout=None)
+    view.add_item(ump_sheet)
+    view.add_item(submit)
     return view

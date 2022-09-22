@@ -68,12 +68,14 @@ calc_cell = {
 calc_cell2 = {
     'after_swing': 'CalcBE!Q3:U3',
     'at_bat': 'CalcBE!G3:K3',
+    'away_sub_list': 'LineupBE!C3:C27',
     'away_team': 'Starting Lineups!B2',
     'boxscore': 'Box Score!A1:A77',
     'current_matchup': 'Calc2!C6:E6',
     'discord_ping': 'Calc2!C23:E26',
     'event': 'Calc2!G10',
     'good_lineup': 'Starting Lineups!B18:E18',
+    'home_sub_list': 'LineupBE!C30:C54',
     'home_team': 'Starting Lineups!E2',
     'matchup_info': 'CalcBE!V3:AB3',
     'swing': 'Calc2!C10',
@@ -173,7 +175,10 @@ main_role_ids = {
     'Reliever of the Year': 818978149210521691,
     'Silver Slugger': 801834215724941383,
     'Paper Cup Winner': 801834274319368284,
-    'Styrofoam Cup Winner': 801840064803635220
+    'Styrofoam Cup Winner': 801840064803635220,
+    'Ump Warden': 436348522246438912,
+    'Ump Council': 600416061455859753,
+    'LOM': 805537549615366154,
 }
 
 fcb_team_ids = ['PUR', 'ORD', 'MSU', 'MCH', 'HRW', 'PAN']
