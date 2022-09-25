@@ -43,7 +43,8 @@ class Game(commands.Cog):
     @commands.command(brief='',
                       description='')
     @commands.dm_only()
-    async def gm_steal(self, ctx, team: str, swing: int, *, steal_type: str):
+    async def gm_steal(self, ctx, team: str, swing: int):
+        # TODO restrict to only the GM of the team that's currently batting
         # TODO parsing the steal number with regex when the steal type includes a number in it
         # Possible steal targets for OBC just in case you’d need that for any logic checks
         # 2B: 1, 5
@@ -52,21 +53,30 @@ class Game(commands.Cog):
         if not 0 < swing <= 1000:
             await ctx.send('Not a valid pitch dum dum.')
             return
-        if not steal_type.upper() in assets.steal_types:
-            await ctx.send(f'Not a valid steal type. Valid types are \n```{assets.steal_types}```')
+        steal_type_options = []
+        for steal_type in assets.steal_types:
+            steal_type_options.append(discord.SelectOption(label=steal_type))
+        steal_type_select = Select(placeholder='Steal Type', options=steal_type_options)
+
+        async def steal_dropdown(interaction):
+            season, session = robo_ump.get_current_session(team)
+            league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+            sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+            data = (ctx.message.id, ctx.message.created_at, league, season, session, game_id)
+            event = robo_ump.set_event(sheet_id, steal_type_select.values[0])
+            db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
+            await ctx.message.add_reaction('👍')
+            await ctx.send(f'Event set to {event}')
+            robo_ump.log_msg(f'{ctx.author.mention} issued a GM steal via DMs for {league} {season}.{session}.{game_id}')
+            data = ('WAITING FOR RESULT', league, season, session, game_id)
+            db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', data)
+            robo_ump.log_msg(f'Game {league} {season}.{session}.{game_id} awaiting result...')
             return
-        season, session = robo_ump.get_current_session(team)
-        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
-        data = (ctx.message.id, ctx.message.created_at, league, season, session, game_id)
-        event = robo_ump.set_event(sheet_id, steal_type.upper())
-        db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
-        await ctx.message.add_reaction('👍')
-        await ctx.send(f'Event set to {event}')
-        robo_ump.log_msg(f'{ctx.author.mention} issued a GM steal via DMs for {league} {season}.{session}.{game_id}')
-        data = ('WAITING FOR RESULT', league, season, session, game_id)
-        db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', data)
-        robo_ump.log_msg(f'Game {league} {season}.{session}.{game_id} awaiting result...')
+
+        view = View(timeout=None)
+        steal_type_select.callback = steal_dropdown
+        view.add_item(steal_type_select)
+        await ctx.send(f'**Select steal type**', view=view)
 
     @commands.command(brief='',
                       description='')
@@ -605,8 +615,6 @@ class Game(commands.Cog):
     @commands.command(brief='',
                       description='')
     async def finalize(self, ctx, team: str):
-        # TODO add a way to update awards after the game is over
-        # TODO require 2+ umps react to trigger actually closing the game out?
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         away_team, away_score, home_team, home_score, reddit_thread, = db.fetch_one('SELECT awayTeam, awayScore, homeTeam, homeScore, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
@@ -714,7 +722,6 @@ class Game(commands.Cog):
                 pitcher_2_SO = pitcher_pair[12]
                 pitcher_2_ERA = pitcher_pair[13]
                 pitcher_list += f'{pitcher_2_name} - **{pitcher_2_ip}** IP **{pitcher_2_h}** H **{pitcher_2_er}** ER **{pitcher_2_BB}**  BB **{pitcher_2_SO}** Ks **{pitcher_2_ERA}** ERA\n\n'
-        pitcher_performance = pitcher_performance[0][0].split('|')
 
         embed = discord.Embed(title=f'{away_team} @ {home_team}', description=f'**Final Score**\n```   {line_1}\n{line_2}\n{line_3}```\r\n**{away_team.upper()}** - {away_score}\n**{home_team.upper()}** - {home_score}')
         embed.add_field(name='Scoring Plays', value=f'```{scoring_play_list}```', inline=False)
