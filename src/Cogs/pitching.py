@@ -124,33 +124,18 @@ class Pitching(commands.Cog):
     @commands.command(brief='',
                       description='')
     @commands.dm_only()
-    async def change_pitch(self, ctx, pitch: int):
-        if not 0 < pitch <= 1000:
-            await ctx.send('Not a valid pitch dum dum.')
-            return
-        game, home = await robo_ump.fetch_game(ctx, self.bot)
-        current_pitch = db.fetch_one('''SELECT pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', game)
-        if current_pitch:
-            db.update_database('''UPDATE pitchData SET pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', game)
-            await ctx.message.add_reaction('👍')
-        else:
-            await ctx.send("How do I change something that doesn't exist??")
-        return
-
-    @commands.command(brief='',
-                      description='')
-    @commands.dm_only()
     async def steal_number(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
             await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
-        steal_number = db.fetch_one('''SELECT steal_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', game)
-        if steal_number:
-            db.update_database('''UPDATE pitchData SET steal_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', game)
+        league, season, session, game_id = game
+        swing_src, = db.fetch_one('''SELECT swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (league, season, session, game_id))
+        if not swing_src:
+            db.update_database('''UPDATE pitchData SET steal_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (ctx.message.id, league, season, session, game_id))
             await ctx.message.add_reaction('👍')
         else:
-            await ctx.send("How do I change something that doesn't exist??")
+            await ctx.send("Swing already submitted, cannot change pitch at this time.")
 
     @commands.command(brief='',
                       description='')

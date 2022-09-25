@@ -134,7 +134,7 @@ class Ump(commands.Cog):
                       description='Sets the game state to completed. Note, does not set awards, that must be done '
                                   'manually through the sheet.')
     @commands.has_role(ump_role)
-    async def finalize(self, ctx):
+    async def finalize_deprecated(self, ctx):
         config = await get_ump_data(ctx, ctx.author.id)
         if config:
             sheet_id = config[2]
@@ -714,7 +714,7 @@ class Ump(commands.Cog):
     @commands.command(brief='Rolls back the last entry into the game log.',
                       description='Rolls back the last entry into the game log.')
     @commands.has_role(ump_role)
-    async def rollback(self, ctx):
+    async def rollback_deprecated(self, ctx):
         await ctx.message.add_reaction(loading_emote)
         config = await get_ump_data(ctx, ctx.author.id)
         if config:

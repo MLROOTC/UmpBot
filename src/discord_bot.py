@@ -91,7 +91,7 @@ async def scoreboard():
     await scoreboard_msg.edit(content=None, embed=embed)
 
 
-@tasks.loop(seconds=5*60)
+@tasks.loop(seconds=1*60)
 async def ump_bot():
     await gameplay_loop.gameplay_loop(bot)
 

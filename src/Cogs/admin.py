@@ -188,7 +188,7 @@ class Admin(commands.Cog):
     @commands.has_role(ump_admin)
     async def remove_webhook(self, ctx, team):
         sql = '''UPDATE teamData SET webhook_url = %s WHERE abb=%s'''
-        db.update_database(sql, ('', team.upper()))
+        db.update_database(sql, (None, team.upper()))
         db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = %s''', (team,))
         if db_team[0][4] == '':
             await ctx.send('Webhook URL reset successfully.')
