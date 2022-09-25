@@ -1030,8 +1030,8 @@ def auto_buttons(bot, embed, league, season, session, game_id):
     async def use_conditional_swing_callback(interaction):
         matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
         if matchup_info[0][0] == conditional_batter_id:
-            sql = 'UPDATE pitchData SET current_batter=%s, swing_requested=%s, swing_submitted=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
-            db.update_database(sql, (conditional_batter_id, conditional_swing_requested, conditional_swing_submitted, None, None, None, league, season, session, game_id))
+            sql = 'UPDATE pitchData SET swing_src=%s, current_batter=%s, swing_requested=%s, swing_submitted=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+            db.update_database(sql, (conditional_swing_src, conditional_batter_id, conditional_swing_requested, conditional_swing_submitted, None, None, None, league, season, session, game_id))
             current_pitcher = db.fetch_one('SELECT current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
             await interaction.response.edit_message(view=None, embed=embed, content=None)
             await interaction.followup.send(content='Using conditional pitch.')
