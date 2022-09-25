@@ -528,12 +528,18 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
     old_result = result_log[0]
     result_at_neutral = result_log[2]
     result_all_neutral = result_log[3]
+
+    # TODO update when ump sheet is updated to have all of these
     batter_wpa = None
     pitcher_wpa = None
-    pr_3B = result_log[10]
-    pr_2B = result_log[11]
-    pr_1B = result_log[12]
-    pr_AB = result_log[13]
+    pr_3B = None
+    pr_2B = None
+    pr_1B = None
+    pr_AB = None
+    # pr_3B = result_log[10]
+    # pr_2B = result_log[11]
+    # pr_1B = result_log[12]
+    # pr_AB = result_log[13]
 
     # Check if result is already logged
     sql = '''SELECT * FROM PALogs WHERE paID=%s'''
