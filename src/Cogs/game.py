@@ -502,7 +502,8 @@ class Game(commands.Cog):
     async def set_lineup(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        sql = 'SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
+        sheet_id, thread_url = db.fetch_one(sql, (league, season, session, game_id))
 
         done = Button(label="Done", style=discord.ButtonStyle.green)
         cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
@@ -511,6 +512,8 @@ class Game(commands.Cog):
             await interaction.response.edit_message(view=None)
             if robo_ump.lineup_check(sheet_id):
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
+                # Write lineup to lineups table
+                await robo_ump.starting_lineup(league, season, session, game_id)
                 if matchup_info:
                     matchup_info = matchup_info[0]
                 else:
@@ -520,7 +523,7 @@ class Game(commands.Cog):
                 home_sp = robo_ump.get_player_id(starting_pitchers[3])
                 db.update_database('UPDATE pitchData SET home_pitcher=%s, away_pitcher=%s, current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (home_sp, away_sp, matchup_info[0], matchup_info[3], league, season, session, game_id))
                 robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
-                # TODO update boxscore
+                await reddit.edit_thread(thread_url, robo_ump.get_box_score(sheet_id))
             else:
                 await ctx.send('Still waiting for lineups.')
                 await interaction.response.edit_message(view=None)

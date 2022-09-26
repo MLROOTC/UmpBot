@@ -843,17 +843,15 @@ async def starting_lineup(league, season, session, game_id):
         (league, season, session, game_id))
     if sheet_id:
         sheet_id = sheet_id[0]
-        home_lineup = sheets.read_sheet(sheet_id, assets.calc_cell['home_lineup'])
-        away_lineup = sheets.read_sheet(sheet_id, assets.calc_cell['away_lineup'])
-        sql_insert = 'INSERT IGNORE INTO lineups (league, season, session, game_id, player_id, position, batting_order, home, starter) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) '
+        home_lineup = sheets.read_sheet(sheet_id, assets.calc_cell2['home_lineup'])
+        away_lineup = sheets.read_sheet(sheet_id, assets.calc_cell2['away_lineup'])
+        sql_insert = 'INSERT INTO lineups (league, season, session, game_id, player_id, position, batting_order, home, starter) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) '
         for i in range(len(home_lineup)):
             player = home_lineup[i]
             if player:
                 player_id = get_player_id(player[0])
                 data = (league, season, session, game_id, player_id, player[1], i + 1, 1, 1)
-                check = db.fetch_one(
-                    'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s',
-                    data)
+                check = db.fetch_one('SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
                 if not check:
                     db.update_database(sql_insert, data)
         for i in range(len(away_lineup)):
@@ -869,9 +867,7 @@ async def starting_lineup(league, season, session, game_id):
 
 
 async def subs(league, season, session, game_id):
-    sheet_id = db.fetch_one(
-        '''SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',
-        (league, season, session, game_id))
+    sheet_id = db.fetch_one('''SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (league, season, session, game_id))
     if sheet_id:
         sheet_id = sheet_id[0]
         away_subs = sheets.read_sheet(sheet_id, assets.calc_cell['away_subs'])
@@ -1100,6 +1096,12 @@ def umpdate_buttons(sheet_id, embed, league, season, session, game_id):
     submit = Button(label="Umpdate", style=discord.ButtonStyle.blurple)
 
     async def submit_callback(interaction):
+        away_pitcher = sheets.read_sheet(sheet_id, assets.calc_cell2['away_pitcher'])
+        home_pitcher = sheets.read_sheet(sheet_id, assets.calc_cell2['home_pitcher'])
+        away_pitcher = get_player_id(away_pitcher[0][0])
+        home_pitcher = get_player_id(home_pitcher[0][0])
+        db.update_database('UPDATE pitchData SET away_pitcher=%s, home_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (away_pitcher, home_pitcher, league, season, session, game_id))
+        await subs(league, season, session, game_id)
         for field in embed.fields:
             if field.name == 'State':
                 set_state(league, season, session, game_id, field.value)
