@@ -12,8 +12,36 @@ class Pitching(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(brief='',
-                      description='')
+    @commands.command(brief='Bypass asking if they want to keep or change pitch on subs',
+                      description='A per-user setting that allows pitchers to disable or enabled whether the bot prompts them to keep or change their pitch on batter substitions and conditional subs.')
+    @commands.dm_only()
+    async def always_keep(self, ctx, keep: bool):
+        player_id = robo_ump.get_player_from_discord(ctx.author.id)
+        db.update_database('UPDATE playerData SET keep_pitch=%s WHERE playerID=%s', (keep, player_id))
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='Clear the pitcher\'s active list',
+                      description='Clears the pitchers list from the datbase. This cannot be undone.')
+    @commands.dm_only()
+    async def clear_list(self, ctx):
+        game, home = await robo_ump.fetch_game(ctx, self.bot)
+        sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        data = (None,) + game
+        db.update_database(sql, data)
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='Allows the pitcher to keep or change their pitch when there is a batter substitution',
+                      description='When a batter sub comes through, the bot will prompt the original to keep or change their pitch. This command allows the pitcher to keep their pitch for the current at-bat only. To keep the same pitch on all substitutions, use .always_keep')
+    @commands.dm_only()
+    async def keep_pitch(self, ctx, keep: bool):
+        game, home = await robo_ump.fetch_game(ctx, self.bot)
+        state = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+        if state[0] == 'WAITING FOR PITCH CONFIRMATION':
+            db.update_database('UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s', ('WAITING FOR PITCH CONFIRMATION',) + game)
+            await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='Submit or change a pitch',
+                      description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).')
     @commands.dm_only()
     async def pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
@@ -68,8 +96,8 @@ class Pitching(commands.Cog):
             print("I didn't think this would happen?")
         return
 
-    @commands.command(brief='',
-                      description='')
+    @commands.command(brief='Add a pitch to a list',
+                      description='Creates a pitch list if it does not exist. Only one pitch can be submitted at a time.')
     @commands.dm_only()
     async def queue_pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
@@ -93,18 +121,24 @@ class Pitching(commands.Cog):
             print_list += f'{await robo_ump.parse_pitch(self.bot, ctx.author.id, int(pitch))}\n'
         await ctx.send(print_list)
 
-    @commands.command(brief='',
-                      description='')
+    @commands.command(brief='Submit a steal number to be used if the runner steals',
+                      description='Submit a steal number separate from the pitch to be used if the runner steals on the current at-bat. Steal numbers are reset after each at-bat is resulted.')
     @commands.dm_only()
-    async def clear_list(self, ctx):
+    async def steal_number(self, ctx, pitch: int):
+        if not 0 < pitch <= 1000:
+            await ctx.send('Not a valid pitch dum dum.')
+            return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
-        sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-        data = (None,) + game
-        db.update_database(sql, data)
-        await ctx.message.add_reaction('👍')
+        league, season, session, game_id = game
+        swing_src, = db.fetch_one('''SELECT swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (league, season, session, game_id))
+        if not swing_src:
+            db.update_database('''UPDATE pitchData SET steal_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (ctx.message.id, league, season, session, game_id))
+            await ctx.message.add_reaction('👍')
+        else:
+            await ctx.send("Swing already submitted, cannot change pitch at this time.")
 
-    @commands.command(brief='',
-                      description='')
+    @commands.command(brief='View the current list or pitches',
+                      description='View the current list or pitches on file.')
     @commands.dm_only()
     async def view_list(self, ctx):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
@@ -120,40 +154,6 @@ class Pitching(commands.Cog):
             await ctx.send(print_list)
         else:
             await ctx.send('Current list is empty.')
-
-    @commands.command(brief='',
-                      description='')
-    @commands.dm_only()
-    async def steal_number(self, ctx, pitch: int):
-        if not 0 < pitch <= 1000:
-            await ctx.send('Not a valid pitch dum dum.')
-            return
-        game, home = await robo_ump.fetch_game(ctx, self.bot)
-        league, season, session, game_id = game
-        swing_src, = db.fetch_one('''SELECT swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (league, season, session, game_id))
-        if not swing_src:
-            db.update_database('''UPDATE pitchData SET steal_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (ctx.message.id, league, season, session, game_id))
-            await ctx.message.add_reaction('👍')
-        else:
-            await ctx.send("Swing already submitted, cannot change pitch at this time.")
-
-    @commands.command(brief='',
-                      description='')
-    @commands.dm_only()
-    async def keep_pitch(self, ctx, keep: bool):
-        game, home = await robo_ump.fetch_game(ctx, self.bot)
-        state = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
-        if state[0] == 'WAITING FOR PITCH CONFIRMATION':
-            db.update_database('UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s', ('WAITING FOR PITCH CONFIRMATION',) + game)
-            await ctx.message.add_reaction('👍')
-
-    @commands.command(brief='',
-                      description='')
-    @commands.dm_only()
-    async def always_keep(self, ctx, keep: bool):
-        player_id = robo_ump.get_player_from_discord(ctx.author.id)
-        db.update_database('UPDATE playerData SET keep_pitch=%s WHERE playerID=%s', (keep, player_id))
-        await ctx.message.add_reaction('👍')
 
 
 async def setup(bot):
