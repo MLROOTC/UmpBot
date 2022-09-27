@@ -182,7 +182,7 @@ class Game(commands.Cog):
         if scoring_plays:
             for scoring_play in scoring_plays:
                 scoring_play_list += f'{scoring_play[0]}\n'
-        # Pitcher performancei have
+        # Pitcher performance
         pitcher_list = ''
         for line in pitcher_performance[0]:
             pitcher_pair = line.split('|')
@@ -240,6 +240,52 @@ class Game(commands.Cog):
             elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCH CONFIRMATION', 'WAITING FOR UMP CONFIRMATION']:
                 matchup_names = sheets.read_sheet(sheet_id, assets.calc_cell2['current_matchup'])
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
+                scoring_plays = sheets.read_sheet(sheet_id, assets.calc_cell2['scoring_plays'])
+                pitcher_performance = sheets.read_sheet(sheet_id, assets.calc_cell2['pitcher_performance'])
+                line_score = sheets.read_sheet(sheet_id, assets.calc_cell2['line_score'])
+
+                line_1 = line_score[0][0]
+                line_1 = line_1.replace('|', ' ')
+                line_1 = line_1.replace('*', '')
+                line_2 = line_score[2][0]
+                line_2 = line_2.replace('|', ' ')
+                line_2 = line_2.replace('*', '')
+                line_3 = line_score[3][0]
+                line_3 = line_3.replace('|', ' ')
+                line_3 = line_3.replace('*', '')
+                line_score = f"   {line_1}\n{line_2}\n{line_3}"
+
+                scoring_play_list = ''
+                if scoring_plays:
+                    for scoring_play in scoring_plays:
+                        scoring_play_list += f'{scoring_play[0]}\n'
+
+                pitcher_list = ''
+                for line in pitcher_performance[0]:
+                    pitcher_pair = line.split('|')
+                    pitcher_1_name = pitcher_pair[0]
+                    pitcher_1_ip = pitcher_pair[1]
+                    pitcher_1_h = pitcher_pair[2]
+                    pitcher_1_er = pitcher_pair[3]
+                    pitcher_1_BB = pitcher_pair[4]
+                    pitcher_1_SO = pitcher_pair[5]
+                    pitcher_1_ERA = pitcher_pair[6]
+                    pitcher_list += f'**{pitcher_1_name}** - **{pitcher_1_ip}** IP **{pitcher_1_h}** H **{pitcher_1_er}** ER **{pitcher_1_BB}**  BB **{pitcher_1_SO}** Ks **{pitcher_1_ERA}**\r\n'
+                    if pitcher_1_ERA != 'Pitching Debut':
+                        pitcher_list += ' ERA'
+                    pitcher_list += '\n'
+                    if len(pitcher_pair) >= 13:
+                        pitcher_2_name = pitcher_pair[7]
+                        pitcher_2_ip = pitcher_pair[8]
+                        pitcher_2_h = pitcher_pair[9]
+                        pitcher_2_er = pitcher_pair[10]
+                        pitcher_2_BB = pitcher_pair[11]
+                        pitcher_2_SO = pitcher_pair[12]
+                        pitcher_2_ERA = pitcher_pair[13]
+                        pitcher_list += f'**{pitcher_2_name}** - **{pitcher_2_ip}** IP **{pitcher_2_h}** H **{pitcher_2_er}** ER **{pitcher_2_BB}**  BB **{pitcher_2_SO}** Ks **{pitcher_2_ERA}**'
+                        if pitcher_2_ERA != 'Pitching Debut':
+                            pitcher_list += ' ERA'
+                        pitcher_list += '\n'
                 if matchup_names:
                     batter_name = matchup_names[0][0]
                     pitcher_name = matchup_names[0][2]
@@ -276,33 +322,34 @@ class Game(commands.Cog):
                     else:
                         continue
 
-                description = f'{pitcher_name: <15}  {pitcher_hand[0]}|{pitcher_type}-{pitcher_bonus}\n'
-                description += f'{batter_name: <15}  {batter_hand[0]}|{batter_type}\n\n'
-                description += f'{awayTeam: <4} {awayScore: <2}     {b2}        {inning}\n'
-                description += f'{homeTeam: <4} {homeScore: <2}   {b1}   {b3}   {outs} Out'
+                description = f'{line_score}\n\n'
+                current_at_bat = f'{awayTeam: <4} {awayScore: <2}     {b2}        {inning}\n'
+                current_at_bat += f'{homeTeam: <4} {homeScore: <2}   {b1}   {b3}   {outs} Out\n\n'
+                current_at_bat += f'{pitcher_name: <15}  {pitcher_hand[0]}|{pitcher_type}-{pitcher_bonus}\n'
+                current_at_bat += f'{batter_name: <15}  {batter_hand[0]}|{batter_type}'
                 embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
-
+                embed.add_field(name='Current At Bat', value=f'```{current_at_bat}```', inline=False)
                 if pitch_requested:
                     if pitch_src:
-                        embed.add_field(name='Pitch', value=f'Pitch submitted at {pitch_submitted}', inline=True)
+                        embed.add_field(name='Pitch', value=f'Pitch submitted at {robo_ump.get_discord_time(pitch_submitted)}', inline=True)
                     else:
-                        embed.add_field(name='Pitch', value=f'Pitch request sent at {pitch_requested}', inline=True)
+                        embed.add_field(name='Pitch', value=f'Pitch request sent at {robo_ump.get_discord_time(pitch_requested)}', inline=True)
                 else:
                     embed.add_field(name='Pitch', value='-', inline=True)
                 if swing_requested:
                     if swing_src:
-                        embed.add_field(name='Swing', value=f'Swing submitted at {swing_submitted}', inline=True)
+                        embed.add_field(name='Swing', value=f'Swing submitted at {robo_ump.get_discord_time(swing_submitted)}', inline=True)
                     else:
-                        embed.add_field(name='Swing', value=f'AB posted at {swing_requested}', inline=True)
+                        embed.add_field(name='Swing', value=f'AB posted at {robo_ump.get_discord_time(swing_requested)}', inline=True)
                 else:
                     embed.add_field(name='Swing', value='-', inline=True)
                 if conditional_pitch_requested:
                     if conditional_pitch_src:
-                        embed.add_field(name='Conditional Pitch', value='Conditional pitch submitted', inline=False)
+                        embed.add_field(name='Conditional Pitch', value='Conditional pitch submitted', inline=True)
                     else:
-                        embed.add_field(name='Conditional Pitch', value='Waiting for pitch', inline=False)
+                        embed.add_field(name='Conditional Pitch', value='Waiting for pitch', inline=True)
                 else:
-                    embed.add_field(name='Conditional Pitch', value='-', inline=False)
+                    embed.add_field(name='Conditional Pitch', value='-', inline=True)
                 if conditional_swing_requested:
                     if conditional_swing_src:
                         embed.add_field(name='Conditional Swing', value='Conditional swing submitted', inline=True)
@@ -310,6 +357,12 @@ class Game(commands.Cog):
                         embed.add_field(name='Conditional Swing', value='Waiting for swing', inline=True)
                 else:
                     embed.add_field(name='Conditional Swing', value='-', inline=True)
+                if scoring_play_list:
+                    embed.add_field(name='Scoring Plays', value=f'```{scoring_play_list}```', inline=False)
+                else:
+                    embed.add_field(name='Scoring Plays', value=f'-', inline=False)
+                if pitcher_list:
+                    embed.add_field(name='Pitching Lines', value=f'{pitcher_list}', inline=False)
             elif state in ['FINALIZING', 'COMPLETE']:
                 description = f'{awayTeam: <4} {awayScore: <2}     ○     Final\n'
                 description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   '
@@ -331,11 +384,6 @@ class Game(commands.Cog):
     @commands.dm_only()
     async def gm_steal(self, ctx, team: str, swing: int):
         # TODO restrict to only the GM of the team that's currently batting
-        # TODO parsing the steal number with regex when the steal type includes a number in it
-        # Possible steal targets for OBC just in case you’d need that for any logic checks
-        # 2B: 1, 5
-        # 3B: 2, 4
-        # Home: 3, 5, 6, 7
         if not 0 < swing <= 1000:
             await ctx.send('Not a valid pitch dum dum.')
             return
@@ -348,15 +396,17 @@ class Game(commands.Cog):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             sheet_id = robo_ump.get_sheet(league, season, session, game_id)
-            data = (ctx.message.id, ctx.message.created_at, league, season, session, game_id)
+            gm_player_id = robo_ump.get_player_from_discord(ctx.author.id)
+            data = (ctx.message.id, ctx.message.created_at, gm_player_id, league, season, session, game_id)
             event = robo_ump.set_event(sheet_id, steal_type_select.values[0])
-            db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
+            db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s, current_batter=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
             await ctx.message.add_reaction('👍')
             await ctx.send(f'Event set to {event}')
             robo_ump.log_msg(f'{ctx.author.mention} issued a GM steal via DMs for {league} {season}.{session}.{game_id}')
-            data = ('WAITING FOR RESULT', league, season, session, game_id)
-            db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', data)
-            robo_ump.log_msg(f'Game {league} {season}.{session}.{game_id} awaiting result...')
+            sql = 'SELECT pitch_requested, pitch_src, swing_requested, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+            pitch_requested, pitch_src, swing_requested, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+            if pitch_src and swing_src:
+                robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
             return
 
         view = View(timeout=None)

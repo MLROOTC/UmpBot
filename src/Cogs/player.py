@@ -1,4 +1,8 @@
 import configparser
+import datetime
+import time
+
+import pytz
 from discord.ext import commands
 import src.db_controller as db
 import src.assets as assets
@@ -549,15 +553,12 @@ class Player(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        # await robo_ump.get_pitch(self.bot, 770, 'SCRIM', 7, 0, 7)
-        # deprecated_pitch = db.fetch_one('''SELECT deprecated_pitch, pitch_src FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', ('SCRIM', 7, 0, 7))
-        # await ctx.send(f'Encrypted Pitch: {deprecated_pitch[0]}')
-        # await ctx.send(f'Decrypted Pitch: {robo_ump.decrypt_pitch("SCRIM", 7, 0, 7)}')
-        # await ctx.send(f'Time: {robo_ump.time_to_pitch("SCRIM", 7, 0, 7)}')
-        # await robo_ump.starting_lineup("MLR", 7, 1, 1)
-        # await robo_ump.subs("MLR", 7, 1, 1)
-        # await ctx.send(f'```{robo_ump.get_current_lineup("MLR", 7, 1, 1, False)}```')
-        lineup = flavor_text_generator.get_current_lineup("MLR", 7, 1, 1, 1)
+        timestamp, = db.fetch_one('SELECT pitch_requested FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', ('MLR', 8, 0, 65))
+        utc_time = datetime.datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day, hour=timestamp.hour, minute=timestamp.minute, second=timestamp.second, microsecond=timestamp.microsecond, tzinfo=pytz.UTC)
+        await ctx.send(utc_time)
+        await ctx.send(f'`{robo_ump.get_discord_time(utc_time)}`')
+        await ctx.send(f'{robo_ump.get_discord_time(utc_time)}')
+        print(timestamp)
 
     @commands.command(brief='Ump council form',
                       description='Returns a link to the google form for an ump council ruling.')

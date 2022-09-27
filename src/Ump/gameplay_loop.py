@@ -13,9 +13,14 @@ async def gameplay_loop(bot):
 
 
 async def update_game(bot, league, season, session, game_id, state):
+    if state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT']:
+        current_batter, current_pitcher = db.fetch_one('''SELECT current_batter, current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (league, season, session, game_id))
+        if not (current_pitcher and current_batter):
+            await robo_ump.update_matchup(league, season, session, game_id)
+            return
     if state == 'WAITING FOR PITCH':
-        sql = '''SELECT current_pitcher, pitch_requested, pitch_submitted, pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-        current_pitcher, pitch_requested, pitch_submitted, pitch_src = db.fetch_one(sql, (league, season, session, game_id))
+        sql = '''SELECT pitch_requested, pitch_submitted, pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        pitch_requested, pitch_submitted, pitch_src = db.fetch_one(sql, (league, season, session, game_id))
         if not pitch_requested:
             await robo_ump.get_pitch(bot, current_pitcher, league, season, session, game_id)
         elif pitch_requested and pitch_submitted:

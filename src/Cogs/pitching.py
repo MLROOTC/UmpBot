@@ -50,6 +50,8 @@ class Pitching(commands.Cog):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         league, season, session, game_id = game
         pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one('SELECT pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE  league=%s AND season=%s AND session=%s AND game_id=%s', game)
+        if not pitch_requested:
+            return
         if swing_submitted and pitch_src:
             swing_submitted = pytz.utc.localize(swing_submitted)
             if swing_submitted < ctx.message.created_at:
@@ -99,13 +101,18 @@ class Pitching(commands.Cog):
     @commands.command(brief='Add a pitch to a list',
                       description='Creates a pitch list if it does not exist. Only one pitch can be submitted at a time.')
     @commands.dm_only()
-    async def queue_pitch(self, ctx, pitch: int):
+    async def queue_pitch(self, ctx, pitch: int, *, extra=None):
+        if extra:
+            await ctx.send('Please only include one number in your list. To submit multiple pitches, use .queue_pitch ### for each number you would like to add.')
+            return
         if not 0 < pitch <= 1000:
             await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
-        sql = f'''SELECT list_{home} FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-        current_list = db.fetch_one(sql, game)
+        sql = f'''SELECT list_{home}, pitch_requested, pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        current_list, pitch_requested, pitch_src = db.fetch_one(sql, game)
+        if pitch_requested and not pitch_src:
+            await ctx.send(f'Warning: it looks like you have a pitch request pending. Please submit a pitch using `.pitch ###` for the current at-bat. I will appending {pitch} to your list to be used for any following at-bats.')
         if not current_list[0]:
             current_list = ''
         else:

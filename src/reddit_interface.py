@@ -92,3 +92,10 @@ async def post_comment(thread_url, comment):
                                 username=username, password=password) as reddit:
         submission = await reddit.submission(Submission.id_from_url(thread_url))
         return await submission.reply(comment)
+
+
+async def reply_comment(parent_comment, body):
+    async with asyncpraw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent,
+                                username=username, password=password) as reddit:
+        comment = await reddit.comment(url=parent_comment)
+        return await comment.reply(body)

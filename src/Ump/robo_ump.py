@@ -1,6 +1,7 @@
 import configparser
 import datetime
-
+import time
+import pytz
 import discord
 from discord.ui import Button, View
 from dhooks import Webhook
@@ -14,21 +15,22 @@ import src.Ump.flavor_text_generator as flavor
 config_ini = configparser.ConfigParser()
 config_ini = 'config.ini'
 league_config = 'league.ini'
-master_ump_sheet = "1DTcSKkfpIn3_zRGY2_jdEGt3mSGT2nC2y1aJoXe--Rk"
+master_ump_sheet = "1eccCs-PQfQ_vRt3yziEgTTjNZt9fGXEb3OfQCUh5FEk"
 regex = "[^0-9]"
 lineup_string = "That\'s a good lineup!"
 
 
 def commit_at_bat(sheet_id):
-    rows = sheets.read_sheet(sheet_id, 'NewGL')
+    play_counter = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
+    play_counter = int(play_counter) + 2
     game_update = sheets.read_sheet(sheet_id, assets.calc_cell2['at_bat'])[0]
-    sheets.update_sheet(sheet_id, f'NewGL!G{len(rows)}', game_update[0])
-    sheets.update_sheet(sheet_id, f'NewGL!H{len(rows)}', game_update[1])
-    sheets.update_sheet(sheet_id, f'NewGL!I{len(rows)}', game_update[2])
-    sheets.update_sheet(sheet_id, f'NewGL!J{len(rows)}', game_update[3])
-    sheets.update_sheet(sheet_id, f'NewGL!K{len(rows)}', game_update[4])
-    sheets.update_sheet(sheet_id, assets.calc_cell2['pitch'], ' ')
-    sheets.update_sheet(sheet_id, assets.calc_cell2['swing'], ' ')
+    sheets.update_sheet(sheet_id, f'NewGL!G{play_counter}', game_update[0])
+    sheets.update_sheet(sheet_id, f'NewGL!H{play_counter}', game_update[1])
+    sheets.update_sheet(sheet_id, f'NewGL!I{play_counter}', game_update[2])
+    sheets.update_sheet(sheet_id, f'NewGL!J{play_counter}', game_update[3])
+    sheets.update_sheet(sheet_id, f'NewGL!K{play_counter}', game_update[4])
+    sheets.update_sheet(sheet_id, assets.calc_cell2['pitch'], None, lazy=True)
+    sheets.update_sheet(sheet_id, assets.calc_cell2['swing'], None, lazy=True)
     sheets.update_sheet(sheet_id, assets.calc_cell2['event'], 'Swing')
     return
 
@@ -279,6 +281,13 @@ def get_box_score(sheet_id):
     return text
 
 
+def get_discord_time(timestamp: datetime):
+    utc_time = datetime.datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day, hour=timestamp.hour,
+                                 minute=timestamp.minute, second=timestamp.second, microsecond=timestamp.microsecond,
+                                 tzinfo=pytz.UTC)
+    return f'<t:{int(time.mktime(utc_time.timetuple()))}:T>'
+
+
 def lineup_check(sheet_id):
     lineup_checker = sheets.read_sheet(sheet_id, assets.calc_cell2['good_lineup'])
     if lineup_checker:
@@ -354,7 +363,8 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
             ab_text = sheets.read_sheet(sheet_id, assets.calc_cell2['pitcher_ab'])
             ab_text = f'{ab_text[0][0]}\n{ab_text[1][0]}\n{ab_text[2][0]}'
             pitcher = bot.get_user(discord_id)
-            pitch_request_msg = await pitcher.send(f'{ab_text}\r\nPitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
+            dm_channel = await pitcher.create_dm()
+            pitch_request_msg = await dm_channel.send(f'{ab_text}\r\nPitch time! Please submit a pitch using `.pitch ###` or create a list using `.queue_pitch ###`.')
 
             db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (pitch_request_msg.created_at, league, season, session, game_id))
     else:
@@ -415,6 +425,8 @@ def get_swing_from_reddit(reddit_comment_url):
     numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
+        if swing == 0:
+            swing = 1000
         if 0 < swing <= 1000:
             parent_thread = reddit.get_thread(swing_comment.submission)
             league, season, session, game_id, sheet_id, state = db.fetch_one('SELECT league, season, session, gameID, sheetID, state FROM gameData WHERE threadURL=%s',(parent_thread.url,))
@@ -448,6 +460,8 @@ async def get_swing_from_reddit_async(reddit_comment_url):
     numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
+        if swing == 0:
+            swing = 1000
         if 0 < swing <= 1000:
             parent_thread = await reddit.get_thread_async(swing_comment.submission)
             league, season, session, game_id, sheet_id, state = db.fetch_one(
@@ -466,13 +480,13 @@ async def get_swing_from_reddit_async(reddit_comment_url):
                 return swing
             else:
                 steal_fail = "Incorrect steal format. Please include one of the following in your swing to steal: STEAL 2B, STEAL 3B, STEAL HOME, MULTISTEAL, 3B MULTISTEAL HOME"
-                await swing_comment.reply(steal_fail)
+                await reddit.reply_comment(reddit_comment_url, steal_fail)
                 return None
     elif len(numbers_in_comment) == 0:
-        await swing_comment.reply("I couldn't find a valid number in your swing. Please reply to the original at-bat ping with a number between 1 and 1000 without any decimal spaces.")
+        await reddit.reply_comment(reddit_comment_url, "I couldn't find a valid number in your swing. Please reply to the original at-bat ping with a number between 1 and 1000 without any decimal spaces.")
         return None
     else:
-        await swing_comment.reply('I found too many numbers in your swing. Please reply to the original AB ping with only one number included in your swing.')
+        await reddit.reply_comment(reddit_comment_url, 'I found too many numbers in your swing. Please reply to the original AB ping with only one number included in your swing.')
         return None
 
 
@@ -511,16 +525,19 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
                pitch, swing, diff, exact_result, rbi, run,
                pitch_requested, pitch_submitted, swing_requested, swing_submitted
                ):
-    play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0]
+    play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
     pa_id = get_pa_id(league, season, session, game_id, play_number[0])
 
     # TODO finish log_result
     sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
-    inning_id, = db.fetch_data(sql, (league, season, session, game_id, inning))
-    if not inning_id:
-        inningID = read_config(league_config, league.upper(), 'inningid')
-        inningID = int(inningID)
-        write_config(league_config, league.upper(), 'inningid', str(inningID + 1))
+    inning_id = db.fetch_data(sql, (league, season, session, game_id, inning))
+
+    if inning_id:
+        inning_id = inning_id[0]
+    else:
+        inning_id = read_config(league_config, league.upper(), 'inningid')
+        inning_id = int(inning_id)
+        write_config(league_config, league.upper(), 'inningid', str(inning_id + 1))
 
     result_log = sheets.read_sheet(sheet_id, assets.calc_cell2['log_result'])
     if result_log:
@@ -647,7 +664,7 @@ def read_config(filename, section, setting):
 
 async def result(bot, league, season, session, game_id):
     sql = '''SELECT current_pitcher, current_batter, pitch_src, swing_src, steal_src, pitch_requested, pitch_submitted, swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-    current_pitcher, current_batter, pitch_src, swing_src, steal_src, pitch_requested, pitch_submitted, swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes = db.fetch_one(
+    current_pitcher_id, current_batter_id, pitch_src, swing_src, steal_src, pitch_requested, pitch_submitted, swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes = db.fetch_one(
         sql, (league, season, session, game_id))
     sheet_id, game_thread, away_team, home_team, away_score, home_score, inning, outs, obc = db.fetch_one(
         '''SELECT sheetID, threadURL, awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',
@@ -701,8 +718,8 @@ async def result(bot, league, season, session, game_id):
             for line in reddit_starter:
                 if len(line) > 0:
                     reddit_comment += f'{line[0]}  \n'
-        pitcher_name, pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (current_pitcher,))
-        batter_name, batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (current_batter,))
+        pitcher_name, pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (current_pitcher_id,))
+        batter_name, batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (current_batter_id,))
         current_pitcher = bot.get_user(int(pitcher_discord))
         dm_channel = await current_pitcher.create_dm()
         swing_number = None
@@ -740,11 +757,13 @@ async def result(bot, league, season, session, game_id):
         inning_after, outs_after, obc_after, home_score_after, away_score_after = after_swing[0]
 
         # Send the result to the pitcher's DMs
-        pitcher_result = f'{batter_name} batting against {pitcher_name}\n'
-        pitcher_result += f'{assets.obc_state[obc]} | {inning} with {outs} out(s)\n\n'
-        pitcher_result += f'Pitch: {pitch_number}\nSwing: {swing_number}\nDiff: {diff} -> {result_type}\n\n'
-        pitcher_result += f'{assets.obc_state[int(obc_after)]} | {inning_after} with {outs_after} out(s)\n'
-        pitcher_result += f'{away_team.upper()} {away_score_after} - {home_team.upper()} {home_score_after}'
+        result_text = sheets.read_sheet(sheet_id, assets.calc_cell2['result_embed'])
+        pitcher_result = ''
+        for line in result_text:
+            if len(line) > 0:
+                pitcher_result += f'{line[0]}\n'
+            else:
+                pitcher_result += '\n'
         await dm_channel.send(f'```{pitcher_result}```')
 
         # Generate reddit comment
@@ -757,6 +776,8 @@ async def result(bot, league, season, session, game_id):
         if swing_src:
             if not swing_src.isnumeric():
                 await swing_comment.reply(reddit_comment)
+            else:
+                await reddit.post_comment(game_thread, reddit_comment)
         else:
             await reddit.post_comment(game_thread, reddit_comment)
 
@@ -769,7 +790,7 @@ async def result(bot, league, season, session, game_id):
             pitcher_team = away_team
 
         log_result(sheet_id, league, season, session, game_id, inning, outs, obc, away_score, home_score,
-                   pitcher_team, pitcher_name, current_pitcher, batter_name, batter_team, current_batter,
+                   pitcher_team, pitcher_name, current_pitcher_id, batter_name, batter_team, current_batter_id,
                    pitch_number, swing_number, diff, result_type, rbi, run,
                    pitch_requested, pitch_submitted, swing_requested, swing_submitted)
 
@@ -804,16 +825,18 @@ async def result(bot, league, season, session, game_id):
         # Update gameData with new game state and remove AB data from pitchData
         sql = '''UPDATE gameData SET awayScore=%s, homeScore=%s, inning=%s, outs=%s, obc=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
         db.update_database(sql, (away_score_after, home_score_after, inning_after, outs_after, obc_after, league, season, session, game_id))
-        sql = '''UPDATE pitchData SET pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-        db.update_database(sql, (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season, session, game_id))
-
-        # Set next pitcher and batter in the database
-        next_matchup = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])[0]
-        sql = '''UPDATE pitchData SET current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-        db.update_database(sql, (next_matchup[0], next_matchup[3], league, season, session, game_id))
+        sql = '''UPDATE pitchData SET current_pitcher=%s, current_batter=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season, session, game_id))
 
         # Set state to "WAITING FOR PITCH"
         set_state(league, season, session, game_id, 'WAITING FOR PITCH')
+
+
+async def update_matchup(league, season, session, game_id):
+    sheet_id, = db.fetch_one('SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+    next_matchup = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])[0]
+    sql = '''UPDATE pitchData SET current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+    db.update_database(sql, (next_matchup[0], next_matchup[3], league, season, session, game_id))
 
 
 def get_game_discussion(bot, league):
