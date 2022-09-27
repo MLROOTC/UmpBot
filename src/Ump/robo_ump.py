@@ -491,21 +491,38 @@ async def get_swing_from_reddit_async(reddit_comment_url):
 
 
 def check_for_event(sheet_id, swing_comment):
+    obc_before = sheets.read_sheet(sheet_id, assets.calc_cell2['obc_before'])[0][0]
+
     if 'STEAL 2B' in swing_comment.body.upper():
-        set_event(sheet_id, 'STEAL 2B')
-        return True
+        if int(obc_before) in get_valid_steal_types('STEAL 2B'):
+            set_event(sheet_id, 'STEAL 2B')
+            return True
+        else:
+            return False
     elif 'STEAL 3B' in swing_comment.body.upper():
-        set_event(sheet_id, 'STEAL 3B')
-        return True
+        if int(obc_before) in get_valid_steal_types('STEAL 3B'):
+            set_event(sheet_id, 'STEAL 3B')
+            return True
+        else:
+            return False
     elif 'STEAL HOME' in swing_comment.body.upper():
-        set_event(sheet_id, 'STEAL HOME')
-        return True
+        if int(obc_before) in get_valid_steal_types('STEAL HOME'):
+            set_event(sheet_id, 'STEAL HOME')
+            return True
+        else:
+            return False
     elif 'MULTISTEAL 3B' in swing_comment.body.upper():
-        set_event(sheet_id, 'MULTISTEAL 3B')
-        return True
+        if int(obc_before) in get_valid_steal_types('MULTISTEAL 3B'):
+            set_event(sheet_id, 'MULTISTEAL 3B')
+            return True
+        else:
+            return False
     elif 'MULTISTEAL HOME' in swing_comment.body.upper():
-        set_event(sheet_id, 'MULTISTEAL HOME')
-        return True
+        if int(obc_before) in get_valid_steal_types('MULTISTEAL HOME'):
+            set_event(sheet_id, 'MULTISTEAL HOME')
+            return True
+        else:
+            return False
     elif 'BUNT' in swing_comment.body.upper():
         set_event(sheet_id, 'BUNT')
     elif 'STEAL' in swing_comment.body.upper():
@@ -533,7 +550,7 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
     inning_id = db.fetch_data(sql, (league, season, session, game_id, inning))
 
     if inning_id:
-        inning_id = inning_id[0]
+        inning_id = inning_id[0][0]
     else:
         inning_id = read_config(league_config, league.upper(), 'inningid')
         inning_id = int(inning_id)
@@ -1137,3 +1154,24 @@ def umpdate_buttons(sheet_id, embed, league, season, session, game_id):
     view.add_item(ump_sheet)
     view.add_item(submit)
     return view
+
+
+def get_valid_steal_types(steal_type):
+    # 0: 'Bases Empty'
+    # 1: 'Runner on First'
+    # 2: 'Runner on Second'
+    # 3: 'Runner on Third'
+    # 4: 'Runners on First and Second'
+    # 5: 'Runners on First and Third'
+    # 6: 'Runners on Second and Third'
+    # 7: 'Bases Loaded'
+    if steal_type == 'STEAL 2B':
+        return [1, 5]
+    elif steal_type == 'STEAL 3B':
+        return [2, 4]
+    elif steal_type == 'STEAL HOME':
+        return [3, 5, 6, 7]
+    elif steal_type == 'MULTISTEAL 3B':
+        return [4]
+    elif steal_type == 'MULTISTEAL HOME':
+        return [6, 7]

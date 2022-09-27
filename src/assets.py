@@ -91,6 +91,7 @@ calc_cell2 = {
     'log_result': 'CalcBE!BK3:CB3',
     'matchup_info': 'CalcBE!V3:AB3',
     'next_up': 'Box Score!C5',
+    'obc_before': 'CalcBE!D3',
     'swing': 'Calc!C10',
     'pitch': 'Calc!E10',
     'starting_pitchers': 'Starting Lineups!B16:E16',
