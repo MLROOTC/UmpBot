@@ -1,6 +1,5 @@
 import configparser
 import datetime
-
 import discord
 from discord.ext import commands
 from discord.ui import Button, View, Select
@@ -30,12 +29,14 @@ class Game(commands.Cog):
 
     @commands.command(brief='Set up a conditional sub for the current pitcher',
                       description='Logs the time the conditional pitch was requested, prompts the pitcher for a conditional pitch, waits for a response, and then logs the conditional pitch and time responded to in the database. If the original pitcher submits a pitch, the bot will automatically request that an umpire verify that the conditions of the sub have not been met before proceeding with the current ab-bat.')
-    async def conditional_pitch(self, ctx, team: str, batter: discord.Member, *, notes: str):
+    async def conditional_pitch(self, ctx, team: str, batter: discord.Member, *, notes: str = None):
+        if not notes:
+            notes = '-'
         season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         league, season, session, game_id = game
         conditional_pitcher = robo_ump.get_player_from_discord(batter.id)
-        conditional_pitch_requested = ctx.message.created_at
+        conditional_pitch_requested = robo_ump.convert_to_unix_time(ctx.message.created_at)
         data = (conditional_pitcher, conditional_pitch_requested, notes, league, season, session, game_id)
         sql = '''UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         db.update_database(sql, data)
@@ -54,12 +55,14 @@ class Game(commands.Cog):
 
     @commands.command(brief='Set up a conditional sub for the current batter',
                       description='Logs the time the conditional swing was requested, prompts the conditional batter for a swing, waits for a response, and then logs the conditional swing and time they responded to in the database. If the original batter submits a swing, the bot will automatically request that an umpire verify that the conditions of the sub have not been met before proceeding with the current ab-bat.')
-    async def conditional_swing(self, ctx, team: str, batter: discord.Member, *, notes: str):
+    async def conditional_swing(self, ctx, team: str, batter: discord.Member, *, notes: str = None):
+        if not notes:
+            notes = '-'
         await ctx.message.add_reaction('👍')
         season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         conditional_batter = robo_ump.get_player_from_discord(batter.id)
-        conditional_swing_requested = ctx.message.created_at
+        conditional_swing_requested = robo_ump.convert_to_unix_time(ctx.message.created_at)
         data = (conditional_batter, conditional_swing_requested, notes) + game
         sql = '''UPDATE pitchData SET conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         db.update_database(sql, data)
@@ -83,7 +86,7 @@ class Game(commands.Cog):
             await ctx.send('Not a valid pitch dum dum.')
             return
         game = await robo_ump.fetch_game_swing(ctx, self.bot)
-        data = (ctx.message.id, ctx.message.created_at) + game
+        data = (ctx.message.id, robo_ump.convert_to_unix_time(ctx.message.created_at)) + game
         league, season, session, game_id = game
         db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         state, = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
@@ -237,7 +240,7 @@ class Game(commands.Cog):
                 description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   {outs} Out'
                 embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
 
-            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCH CONFIRMATION', 'WAITING FOR UMP CONFIRMATION']:
+            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCHER CONFIRMATION', 'WAITING FOR UMP CONFIRMATION']:
                 matchup_names = sheets.read_sheet(sheet_id, assets.calc_cell2['current_matchup'])
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
                 scoring_plays = sheets.read_sheet(sheet_id, assets.calc_cell2['scoring_plays'])
@@ -260,6 +263,7 @@ class Game(commands.Cog):
                     for scoring_play in scoring_plays:
                         scoring_play_list += f'{scoring_play[0]}\n'
 
+                # TODO why is it only showing one line?
                 pitcher_list = ''
                 for line in pitcher_performance[0]:
                     pitcher_pair = line.split('|')
@@ -331,16 +335,16 @@ class Game(commands.Cog):
                 embed.add_field(name='Current At Bat', value=f'```{current_at_bat}```', inline=False)
                 if pitch_requested:
                     if pitch_src:
-                        embed.add_field(name='Pitch', value=f'Pitch submitted at {robo_ump.get_discord_time(pitch_submitted)}', inline=True)
+                        embed.add_field(name='Pitch', value=f'Pitch submitted at <t:{pitch_submitted}:T>', inline=True)
                     else:
-                        embed.add_field(name='Pitch', value=f'Pitch request sent at {robo_ump.get_discord_time(pitch_requested)}', inline=True)
+                        embed.add_field(name='Pitch', value=f'Pitch request sent at <t:{pitch_requested}:T>', inline=True)
                 else:
                     embed.add_field(name='Pitch', value='-', inline=True)
                 if swing_requested:
                     if swing_src:
-                        embed.add_field(name='Swing', value=f'Swing submitted at {robo_ump.get_discord_time(swing_submitted)}', inline=True)
+                        embed.add_field(name='Swing', value=f'Swing submitted at <t:{swing_submitted}:T>', inline=True)
                     else:
-                        embed.add_field(name='Swing', value=f'AB posted at {robo_ump.get_discord_time(swing_requested)}', inline=True)
+                        embed.add_field(name='Swing', value=f'AB posted at <t:{swing_requested}:T>', inline=True)
                 else:
                     embed.add_field(name='Swing', value='-', inline=True)
                 if conditional_pitch_requested:
@@ -397,7 +401,7 @@ class Game(commands.Cog):
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             sheet_id = robo_ump.get_sheet(league, season, session, game_id)
             gm_player_id = robo_ump.get_player_from_discord(ctx.author.id)
-            data = (ctx.message.id, ctx.message.created_at, gm_player_id, league, season, session, game_id)
+            data = (ctx.message.id, robo_ump.convert_to_unix_time(ctx.message.created_at), gm_player_id, league, season, session, game_id)
             event = robo_ump.set_event(sheet_id, steal_type_select.values[0])
             db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s, current_batter=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
             await ctx.message.add_reaction('👍')
@@ -421,8 +425,7 @@ class Game(commands.Cog):
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
         event = robo_ump.set_event(sheet_id, 'IBB')
-        data = ('WAITING FOR RESULT', league, season, session, game_id)
-        db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', data)
+        robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         await ctx.send(f'Event set to {event}')
         robo_ump.log_msg(f'{ctx.author.mention} issued an IBB for {league} {season}.{session}.{game_id}')
 
@@ -456,29 +459,24 @@ class Game(commands.Cog):
         sql = '''SELECT pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one(sql, game)
         logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+        conditional_pitcher_name, conditional_pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_pitcher,))
+        conditional_pitcher_discord = self.bot.get_user(int(conditional_pitcher_discord))
+        conditional_pitcher_dm_channel = await conditional_pitcher_discord.create_dm()
+        conditional_pitch_src = await conditional_pitcher_dm_channel.fetch_message(int(conditional_pitch_src))
 
         embed = discord.Embed(title='Auto BB Request',
                               description=f'{ctx.author.mention} has requested an auto BB. Please investigate.',
                               color=discord.Color(value=int(color, 16)))
         embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
-        embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})', inline=True)
-        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})',
-                        inline=True)
-        embed.add_field(name='Pitch Requested', value=pitch_requested, inline=False)
-        conditional_sub = '-'
-        if conditional_pitch_requested:
-            conditional_sub = f'**Pitcher:** {robo_ump.get_player_name(conditional_pitcher)}\n'
-            conditional_sub += f'**Notes:** {conditional_pitch_notes}\n'
-            conditional_sub += f'**Time:** {conditional_pitch_requested}\n'
-            if conditional_pitch_src:
-                conditional_sub += '**Pitch**: On file'
-            else:
-                conditional_sub += '**Pitch**: No swing on file'
-        if pitch_submitted:
-            embed.add_field(name='Pitch Submitted', value=pitch_submitted, inline=True)
-        else:
-            embed.add_field(name='Pitch Submitted', value='-', inline=True)
-        embed.add_field(name='Conditional Sub', value=conditional_sub, inline=False)
+        embed.add_field(name='Pitch Requested', value=pitch_requested)
+        embed.add_field(name='Pitch Submitted', value=robo_ump.convert_to_unix_time(ctx.message.created_at))
+        embed.add_field(name='Conditional Pitcher', value=conditional_pitcher_name)
+        embed.add_field(name='Conditional Pitcher ID', value=conditional_pitcher)
+        embed.add_field(name='Conditional Pitch Requested', value=conditional_pitch_requested)
+        embed.add_field(name='Conditional Pitch Submitted',
+                        value=robo_ump.convert_to_unix_time(conditional_pitch_src.created_at))
+        embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})')
+        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
         confirmation = await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed, self.bot, league, season, session, game_id))
 
     @commands.command(brief='Request umps issue an Auto K',
@@ -491,26 +489,20 @@ class Game(commands.Cog):
         sql = '''SELECT swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes = db.fetch_one(sql, game)
         logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+        conditional_batter_name, conditional_batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_batter,))
+        conditional_batter_discord = self.bot.get_user(int(conditional_batter_discord))
+        conditional_batter_dm_channel = await conditional_batter_discord.create_dm()
+        conditional_swing_src = await conditional_batter_dm_channel.fetch_message(int(conditional_swing_src))
 
         embed = discord.Embed(title='Auto K Request', description=f'{ctx.author.mention} has requested an auto K. Please investigate.', color=discord.Color(value=int(color, 16)))
         embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+        embed.add_field(name='Conditional Batter', value=conditional_batter_name, inline=True)
+        embed.add_field(name='Conditional Batter ID', value=conditional_batter, inline=True)
+        embed.add_field(name='Condition', value=conditional_swing_notes, inline=True)
+        embed.add_field(name='Conditional Time Requested', value=f'<t:{conditional_swing_requested}:T>', inline=True)
+        embed.add_field(name='ConditionalTime Submitted', value=f'<t:{robo_ump.convert_to_unix_time(conditional_swing_src.created_at)}:T>', inline=True)
+        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
         embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})', inline=True)
-        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})', inline=True)
-        embed.add_field(name='AB Posted', value=swing_requested, inline=False)
-        conditional_sub = '-'
-        if conditional_swing_requested:
-            conditional_sub = f'**Batter:** {robo_ump.get_player_name(conditional_batter)}\n'
-            conditional_sub += f'**Notes:** {conditional_swing_notes}\n'
-            conditional_sub += f'**Time:** {conditional_swing_requested}\n'
-            if conditional_swing_src:
-                conditional_sub += '**Swing**: On file'
-            else:
-                conditional_sub += '**Swing**: No swing on file'
-        if swing_submitted:
-            embed.add_field(name='Swing Posted', value=swing_submitted, inline=True)
-        else:
-            embed.add_field(name='Swing Posted', value='-', inline=True)
-        embed.add_field(name='Conditional Sub', value=conditional_sub, inline=False)
         confirmation = await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed, self.bot, league, season, session, game_id))
 
     @commands.command(brief='Request a position change',
@@ -541,24 +533,30 @@ class Game(commands.Cog):
         cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
         async def player_callback(interaction):
+            await interaction.response.defer()
             embed.add_field(name='Player', value=player_select.values[0])
-            await interaction.response.edit_message(embed=embed)
+            await prompt.edit(embed=embed)
 
         async def old_position_callback(interaction):
+            await interaction.response.defer()
             embed.add_field(name='Old Position', value=old_pos_select.values[0])
-            await interaction.response.edit_message(embed=embed)
+            await prompt.edit(embed=embed)
 
         async def new_position_callback(interaction):
+            await interaction.response.defer()
             embed.add_field(name='New Position', value=new_pos_select.values[0])
-            await interaction.response.edit_message(embed=embed)
+            await prompt.edit(embed=embed)
 
         async def send_request(interaction):
-            await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(sheet_id, embed, league, season, session, game_id))
+            await interaction.response.defer()
+            await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(self.bot, sheet_id, embed, league, season, session, game_id))
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
-            await interaction.response.edit_message(content='Request sent.', view=None, embed=embed)
+            await prompt.edit(content=None, view=None, embed=embed)
+            await interaction.followup.send('Request sent.')
 
-        async def cancel_request(interaction):
-            await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
+        async def cancel_request(interaction: discord.Interaction):
+            await interaction.response.defer()
+            await prompt.edit(content='Request cancelled.', view=None, embed=None)
             return
 
         player_select.callback = player_callback
@@ -577,7 +575,7 @@ class Game(commands.Cog):
         embed = discord.Embed(title='Position Change Request', description=f'{ctx.author.mention} has requested the following position change.\n\nPlease update the **Subs** tab on the Ump Helper sheet.', color=discord.Color(value=int(color, 16)))
         embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
         embed.add_field(name='State', value=state, inline=False)
-        await ctx.send(content='Use the drop down menus to select the relevant player, their current position, and their new position. You can submit multiple position changes in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
+        prompt = await ctx.send(content='Use the drop down menus to select the relevant player, their current position, and their new position. You can submit multiple position changes in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
         return None
 
     @commands.command(brief='Request a player substitution',
@@ -608,21 +606,39 @@ class Game(commands.Cog):
         cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
         async def player_out_callback(interaction):
+            await interaction.response.defer()
             embed.add_field(name='Player Out', value=player_out_select.values[0])
-            await interaction.response.edit_message(embed=embed)
+            await prompt.edit(embed=embed)
 
         async def player_in_callback(interaction):
+            await interaction.response.defer()
             embed.add_field(name='Player In', value=player_in_select.values[0])
-            await interaction.response.edit_message(embed=embed)
+            await prompt.edit(embed=embed)
 
         async def position_callback(interaction):
+            await interaction.response.defer()
             embed.add_field(name='Position', value=positions_select.values[0])
-            await interaction.response.edit_message(embed=embed)
+            await prompt.edit(embed=embed)
 
         async def send_request(interaction):
-            await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(sheet_id, embed, league, season, session, game_id))
+            await interaction.response.defer()
+            current_batter, current_pitcher = db.fetch_one('SELECT current_batter, current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+            ask_pitcher = False
+            new_pitcher = False
+            for field in embed.fields:
+                if field.name == 'Player Out':
+                    player_id = robo_ump.get_player_id(field.value)
+                    if current_batter == player_id:
+                        ask_pitcher = True
+                    if current_pitcher == player_id:
+                        new_pitcher = True
+            if ask_pitcher:
+                embed.add_field(name='Requires Pitcher Confirmation', value=True)
+            if new_pitcher:
+                embed.add_field(name='Clear Current Pitch', value=True)
+            await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(self.bot, sheet_id, embed, league, season, session, game_id))
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
-            await interaction.response.edit_message(content='Request sent.', view=None, embed=embed)
+            await prompt.edit(content='Request sent.', view=None, embed=embed)
 
         async def cancel_request(interaction):
             await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
@@ -644,7 +660,7 @@ class Game(commands.Cog):
         embed = discord.Embed(title='Substitution Request', description=f'{ctx.author.mention} has requested the following substitution.\n\nPlease update the **Subs** tab on the Ump Helper sheet.', color=discord.Color(value=int(color, 16)))
         embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
         embed.add_field(name='State', value=state, inline=False)
-        await ctx.send(content='Use the drop down menus to select the player you want subbed out, the player you want subbed in, and their new position. You can submit multiple substitutions in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
+        prompt = await ctx.send(content='Use the drop down menus to select the player you want subbed out, the player you want subbed in, and their new position. You can submit multiple substitutions in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
 
     @commands.command(brief='Roll back the last play',
                       description='Removes the previous play from the game log and the PALogs table in the database, and sets the game state back to the start of the previous at-bat.')
@@ -671,6 +687,7 @@ class Game(commands.Cog):
         cancel = Button(label="Cancel", style=discord.ButtonStyle.grey)
 
         async def send_request(interaction):
+            await interaction.response.defer()
             play_number = last_play[57]
             pa_id = robo_ump.get_pa_id(league, season, session, game_id, play_number)
 
@@ -685,11 +702,12 @@ class Game(commands.Cog):
             robo_ump.remove_from_pa_log(pa_id)
 
             # Clear current pitch/swing data
-            sql = '''UPDATE pitchData SET pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            db.update_database(sql, (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season,session, game_id))
+            sql = '''UPDATE pitchData SET current_pitcher=%s, current_batter=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+            db.update_database(sql, (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season,session, game_id))
 
             robo_ump.log_msg(f'{ctx.author} rolled back play {pa_id} for {league.upper()} {season}.{session}.{game_id}')
-            await interaction.response.edit_message(content=f'**Play successfully rolled back.**\n```{at_bat}```', view=None)
+            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
+            await message.edit(content=f'**Play successfully rolled back.**\n```{at_bat}```', view=None)
             return
 
         async def cancel_request(interaction):
@@ -701,7 +719,7 @@ class Game(commands.Cog):
         view = View(timeout=None)
         view.add_item(confirm)
         view.add_item(cancel)
-        await ctx.send(f'**Clear last play?**\n```{at_bat}```', view=view)
+        message = await ctx.send(f'**Clear last play?**\n```{at_bat}```', view=view)
 
     @commands.command(brief='Set lineups to start the game',
                       description='GMs can input their lineup directly to the ump helper sheet. When both lineups have been submitted, the game automatically prompts the pitcher for their first pitch. ')
@@ -715,6 +733,7 @@ class Game(commands.Cog):
         cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
         async def done_lineup(interaction):
+            # TODO defer interaction
             await interaction.response.edit_message(view=None)
             if robo_ump.lineup_check(sheet_id):
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
@@ -780,8 +799,8 @@ class Game(commands.Cog):
             await ctx.send('Not a valid pitch dum dum.')
             return
         game = await robo_ump.fetch_game_conditional_swing(ctx, self.bot)
-        data = (ctx.message.id, ctx.message.created_at) + game
-        db.update_database('''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
+        data = (ctx.message.id, robo_ump.convert_to_unix_time(ctx.message.created_at)) + game
+        db.update_database('''UPDATE pitchData SET conditional_swing_src=%s, conditional_swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         await ctx.message.add_reaction('👍')
 
 
@@ -794,11 +813,12 @@ def standard_buttons(channel, embed, bot, league, season, session, game_id):
     cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
     async def send_request(interaction):
+        await interaction.response.defer()
         if 'Auto' in embed.title:
             await channel.send(embed=embed, view=robo_ump.auto_buttons(bot, embed, league, season, session, game_id))
         else:
             await channel.send(embed=embed)
-        await interaction.response.edit_message(content='Request sent.', view=None, embed=None)
+        await interaction.message.edit(content='Request sent.', view=None, embed=None)
 
     async def cancel_request(interaction):
         await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)

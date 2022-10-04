@@ -34,7 +34,7 @@ async def update_game(bot, league, season, session, game_id, state):
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
     elif state == 'WAITING FOR RESULT':
         await robo_ump.result(bot, league, season, session, game_id)
-    elif state == 'SUB REQUESTED':
+    elif state == 'WAITING FOR PITCHER RESPONSE':
         print('SUB REQUESTED')
     elif state == 'AUTO REQUESTED':
         print('AUTO REQUESTED')

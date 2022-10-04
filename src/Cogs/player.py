@@ -325,18 +325,7 @@ class Player(commands.Cog):
         if not player:
             return
         if player:
-            sheet_id = sheets.get_sheet_id(self.config_ini['URLs']['mlr_roster'])
-            player_stats = sheets.read_sheet(sheet_id, 'Player Stats')
             embed = player_embed(player)
-            for p in player_stats:
-                if p[1] == 'Hitting Stats':
-                    session = p[90]
-                elif p[0] == player[1]:
-                    if player[7] != 'P':
-                        embed.add_field(name='AVG/OBP/SLG/OPS', value='%s/%s/%s/%s' % (p[17], p[18], p[19], p[20]), inline=False)
-                    if player[7] == 'P' or player[7] == 'PH':
-                        embed.add_field(name='IP/ER/ERA/WHIP', value='%s/%s/%s/%s' % (p[44], p[47], p[68], p[70]), inline=False)
-                    embed.set_footer(text='*Stats shown through Session %s' % session)
             await ctx.send(embed=embed)
 
     @commands.command(brief='MLR Pitching Stats',
@@ -553,12 +542,14 @@ class Player(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        timestamp, = db.fetch_one('SELECT pitch_requested FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', ('MLR', 8, 0, 65))
-        utc_time = datetime.datetime(year=timestamp.year, month=timestamp.month, day=timestamp.day, hour=timestamp.hour, minute=timestamp.minute, second=timestamp.second, microsecond=timestamp.microsecond, tzinfo=pytz.UTC)
-        await ctx.send(utc_time)
-        await ctx.send(f'`{robo_ump.get_discord_time(utc_time)}`')
-        await ctx.send(f'{robo_ump.get_discord_time(utc_time)}')
-        print(timestamp)
+        server_id = 344859525582422016
+        role_id = 983902709612703744
+        channel_id = 1024436874892288110
+        channel = self.bot.get_channel(channel_id)
+        main = self.bot.get_guild(server_id)
+        role = discord.utils.get(main.roles, id=role_id)
+        await ctx.send(f'`{role.mention}`')
+        await channel.send(role.mention)
 
     @commands.command(brief='Ump council form',
                       description='Returns a link to the google form for an ump council ruling.')
@@ -653,7 +644,20 @@ async def get_player(ctx, name):
 
 
 def player_embed(player):
-    player_id, player_name, team, batting_type, pitching_type, hand_bonus, hand, pos1, pos2, pos3, reddit_name, discord_name, discord_id, format_no, status, posValue = player
+    player_id = player[0]
+    player_name = player[1]
+    team = player[2]
+    batting_type = player[3]
+    pitching_type = player[4]
+    hand_bonus = player[5]
+    hand = player[6]
+    pos1 = player[7]
+    pos2 = player[8]
+    pos3 = player[9]
+    reddit_name = player[10]
+    discord_name = player[11]
+    discord_id = player[12]
+    milr_team = player[16]
     if not discord_name:
         discord_name = '--'
     if discord_id:

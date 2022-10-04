@@ -33,12 +33,13 @@ class Pitching(commands.Cog):
     @commands.command(brief='Allows the pitcher to keep or change their pitch when there is a batter substitution',
                       description='When a batter sub comes through, the bot will prompt the original to keep or change their pitch. This command allows the pitcher to keep their pitch for the current at-bat only. To keep the same pitch on all substitutions, use .always_keep')
     @commands.dm_only()
-    async def keep_pitch(self, ctx, keep: bool):
+    async def keep_pitch(self, ctx):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
+        league, season, session, game_id = game
         state = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
         if state[0] == 'WAITING FOR PITCH CONFIRMATION':
-            db.update_database('UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s', ('WAITING FOR PITCH CONFIRMATION',) + game)
             await ctx.message.add_reaction('👍')
+            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR SWING')
 
     @commands.command(brief='Submit or change a pitch',
                       description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).')
@@ -50,11 +51,11 @@ class Pitching(commands.Cog):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         league, season, session, game_id = game
         pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one('SELECT pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE  league=%s AND season=%s AND session=%s AND game_id=%s', game)
+        state, = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
         if not pitch_requested:
             return
-        if swing_submitted and pitch_src:
-            swing_submitted = pytz.utc.localize(swing_submitted)
-            if swing_submitted < ctx.message.created_at:
+        if swing_submitted and pitch_src and state != 'WAITING FOR PITCHER CONFIRMATION':
+            if swing_submitted < robo_ump.convert_to_unix_time(ctx.message.created_at):
                 await ctx.send('Swing already submitted, cannot change pitch at this time.')
                 return
         else:
@@ -64,7 +65,7 @@ class Pitching(commands.Cog):
                 data = (ctx.message.id,) + game
             else:
                 sql = '''UPDATE pitchData SET pitch_src=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-                data = (ctx.message.id, ctx.message.created_at) + game
+                data = (ctx.message.id, robo_ump.convert_to_unix_time(ctx.message.created_at)) + game
             db.update_database(sql, data)
             await ctx.message.add_reaction('👍')
         if swing_submitted and not conditional_pitch_src:
@@ -83,11 +84,11 @@ class Pitching(commands.Cog):
             embed = discord.Embed(title='Conditional Pitch Check', description=description, color=discord.Color(value=int(color, 16)))
             embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
             embed.add_field(name='Pitch Requested', value=pitch_requested)
-            embed.add_field(name='Pitch Submitted', value=ctx.message.created_at)
+            embed.add_field(name='Pitch Submitted', value=robo_ump.convert_to_unix_time(ctx.message.created_at))
             embed.add_field(name='Conditional Pitcher', value=conditional_pitcher_name)
             embed.add_field(name='Conditional Pitcher ID', value=conditional_pitcher)
             embed.add_field(name='Conditional Pitch Requested', value=conditional_pitch_requested)
-            embed.add_field(name='Conditional Pitch Submitted', value=conditional_pitch_src.created_at)
+            embed.add_field(name='Conditional Pitch Submitted', value=robo_ump.convert_to_unix_time(conditional_pitch_src.created_at))
             embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})')
             embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
             ump_hq = robo_ump.read_config(config_ini, 'Channels', 'ump_hq')
@@ -113,11 +114,9 @@ class Pitching(commands.Cog):
         current_list, pitch_requested, pitch_src = db.fetch_one(sql, game)
         if pitch_requested and not pitch_src:
             await ctx.send(f'Warning: it looks like you have a pitch request pending. Please submit a pitch using `.pitch ###` for the current at-bat. I will appending {pitch} to your list to be used for any following at-bats.')
-        if not current_list[0]:
+        if not current_list:
             current_list = ''
-        else:
-            current_list = current_list[0]
-        current_list += f'{ctx.message.id} '
+        current_list += f' {ctx.message.id}'
         sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         data = (current_list,) + game
         db.update_database(sql, data)
