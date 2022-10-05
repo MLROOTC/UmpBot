@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 import src.db_controller as db
 import src.Ump.robo_ump as robo_ump
-import pytz
 
 config_ini = 'config.ini'
 
@@ -13,7 +12,8 @@ class Pitching(commands.Cog):
         self.bot = bot
 
     @commands.command(brief='Bypass asking if they want to keep or change pitch on subs',
-                      description='A per-user setting that allows pitchers to disable or enabled whether the bot prompts them to keep or change their pitch on batter substitions and conditional subs.')
+                      description='A per-user setting that allows pitchers to disable or enabled whether the bot prompts them to keep or change their pitch on batter substitions and conditional subs.',
+                      aliases=['alwayskeep'])
     @commands.dm_only()
     async def always_keep(self, ctx, keep: bool):
         player_id = robo_ump.get_player_from_discord(ctx.author.id)
@@ -21,7 +21,8 @@ class Pitching(commands.Cog):
         await ctx.message.add_reaction('👍')
 
     @commands.command(brief='Clear the pitcher\'s active list',
-                      description='Clears the pitchers list from the datbase. This cannot be undone.')
+                      description='Clears the pitchers list from the datbase. This cannot be undone.',
+                      aliases=['clear', 'clearlist'])
     @commands.dm_only()
     async def clear_list(self, ctx):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
@@ -31,7 +32,8 @@ class Pitching(commands.Cog):
         await ctx.message.add_reaction('👍')
 
     @commands.command(brief='Allows the pitcher to keep or change their pitch when there is a batter substitution',
-                      description='When a batter sub comes through, the bot will prompt the original to keep or change their pitch. This command allows the pitcher to keep their pitch for the current at-bat only. To keep the same pitch on all substitutions, use .always_keep')
+                      description='When a batter sub comes through, the bot will prompt the original to keep or change their pitch. This command allows the pitcher to keep their pitch for the current at-bat only. To keep the same pitch on all substitutions, use .always_keep',
+                      aliases=['keep', 'keeppitch'])
     @commands.dm_only()
     async def keep_pitch(self, ctx):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
@@ -42,7 +44,8 @@ class Pitching(commands.Cog):
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR SWING')
 
     @commands.command(brief='Submit or change a pitch',
-                      description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).')
+                      description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).',
+                      aliases=['p'])
     @commands.dm_only()
     async def pitch(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
@@ -100,7 +103,8 @@ class Pitching(commands.Cog):
         return
 
     @commands.command(brief='Add a pitch to a list',
-                      description='Creates a pitch list if it does not exist. Only one pitch can be submitted at a time.')
+                      description='Creates a pitch list if it does not exist. Only one pitch can be submitted at a time.',
+                      aliases=['queue', 'queuepitch', 'q'])
     @commands.dm_only()
     async def queue_pitch(self, ctx, pitch: int, *, extra=None):
         if extra:
@@ -128,7 +132,8 @@ class Pitching(commands.Cog):
         await ctx.send(print_list)
 
     @commands.command(brief='Submit a steal number to be used if the runner steals',
-                      description='Submit a steal number separate from the pitch to be used if the runner steals on the current at-bat. Steal numbers are reset after each at-bat is resulted.')
+                      description='Submit a steal number separate from the pitch to be used if the runner steals on the current at-bat. Steal numbers are reset after each at-bat is resulted.',
+                      aliases=['stealnumber', 'stealnum', 'stealno', 'steal_no', 'steal_num'])
     @commands.dm_only()
     async def steal_number(self, ctx, pitch: int):
         if not 0 < pitch <= 1000:
@@ -144,7 +149,8 @@ class Pitching(commands.Cog):
             await ctx.send("Swing already submitted, cannot change pitch at this time.")
 
     @commands.command(brief='View the current list or pitches',
-                      description='View the current list or pitches on file.')
+                      description='View the current list or pitches on file.',
+                      aliases=['view', 'viewlist', 'list'])
     @commands.dm_only()
     async def view_list(self, ctx):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
