@@ -74,6 +74,7 @@ calc_cell2 = {
     'away_pitcher': 'Subs!J14',
     'away_sub_list': 'LineupBE!C3:C27',
     'away_team': 'Starting Lineups!B2',
+    'before_swing': 'CalcBE!B3:F3',
     'boxscore': 'Box Score!A1:A77',
     'current_matchup': 'Calc!C6:E6',
     'current_situation': 'Box Score!C3',

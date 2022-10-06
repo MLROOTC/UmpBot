@@ -27,7 +27,7 @@ class Game(commands.Cog):
 
     @commands.command(brief='Checks a reddit comment to see if it contains a valid swing',
                       description='Checks a given reddit comment to see if it contains a valid swing. This is typically done automatically by a separate script, but sometimes reddit sux and we need a way to trigger it outside of the reddit_watcher script. ',
-                      aliases=['checkswing'])
+                      aliases=['checkswing', 'check'])
     @commands.has_role(umpire_role)
     async def check_swing(self, ctx, reddit_comment: str):
         await robo_ump.get_swing_from_reddit_async(reddit_comment)
@@ -240,7 +240,7 @@ class Game(commands.Cog):
 
     @commands.command(brief='Get the current game state',
                       description='Get the current game state',
-                      aliases=['state', 'gamestate'])
+                      aliases=['state', 'gamestate', 'game'])
     async def game_state(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
@@ -257,7 +257,6 @@ class Game(commands.Cog):
                 description = f'{awayTeam: <4} {awayScore: <2}     ○     T1\n'
                 description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   {outs} Out'
                 embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
-
             elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCHER CONFIRMATION', 'WAITING FOR UMP CONFIRMATION']:
                 matchup_names = sheets.read_sheet(sheet_id, assets.calc_cell2['current_matchup'])
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
@@ -283,8 +282,8 @@ class Game(commands.Cog):
 
                 # TODO why is it only showing one line?
                 pitcher_list = ''
-                for line in pitcher_performance[0]:
-                    pitcher_pair = line.split('|')
+                for line in pitcher_performance:
+                    pitcher_pair = line[0].split('|')
                     pitcher_1_name = pitcher_pair[0]
                     pitcher_1_ip = pitcher_pair[1]
                     pitcher_1_h = pitcher_pair[2]
@@ -292,10 +291,11 @@ class Game(commands.Cog):
                     pitcher_1_BB = pitcher_pair[4]
                     pitcher_1_SO = pitcher_pair[5]
                     pitcher_1_ERA = pitcher_pair[6]
-                    pitcher_list += f'**{pitcher_1_name}** - **{pitcher_1_ip}** IP **{pitcher_1_h}** H **{pitcher_1_er}** ER **{pitcher_1_BB}**  BB **{pitcher_1_SO}** Ks **{pitcher_1_ERA}**\r\n'
-                    if pitcher_1_ERA != 'Pitching Debut':
-                        pitcher_list += ' ERA'
-                    pitcher_list += '\n'
+                    if pitcher_1_name != '--':
+                        pitcher_list += f'**{pitcher_1_name}** - **{pitcher_1_ip}** IP **{pitcher_1_h}** H **{pitcher_1_er}** ER **{pitcher_1_BB}**  BB **{pitcher_1_SO}** Ks **{pitcher_1_ERA}**'
+                        if pitcher_1_ERA != 'Pitching Debut':
+                            pitcher_list += ' ERA'
+                        pitcher_list += '\n'
                     if len(pitcher_pair) >= 13:
                         pitcher_2_name = pitcher_pair[7]
                         pitcher_2_ip = pitcher_pair[8]
@@ -304,10 +304,11 @@ class Game(commands.Cog):
                         pitcher_2_BB = pitcher_pair[11]
                         pitcher_2_SO = pitcher_pair[12]
                         pitcher_2_ERA = pitcher_pair[13]
-                        pitcher_list += f'**{pitcher_2_name}** - **{pitcher_2_ip}** IP **{pitcher_2_h}** H **{pitcher_2_er}** ER **{pitcher_2_BB}**  BB **{pitcher_2_SO}** Ks **{pitcher_2_ERA}**'
-                        if pitcher_2_ERA != 'Pitching Debut':
-                            pitcher_list += ' ERA'
-                        pitcher_list += '\n'
+                        if pitcher_2_name != '--':
+                            pitcher_list += f'**{pitcher_2_name}** - **{pitcher_2_ip}** IP **{pitcher_2_h}** H **{pitcher_2_er}** ER **{pitcher_2_BB}**  BB **{pitcher_2_SO}** Ks **{pitcher_2_ERA}**'
+                            if pitcher_2_ERA != 'Pitching Debut':
+                                pitcher_list += ' ERA'
+                            pitcher_list += '\n'
                 if matchup_names:
                     batter_name = matchup_names[0][0]
                     pitcher_name = matchup_names[0][2]
@@ -346,7 +347,7 @@ class Game(commands.Cog):
 
                 description = f'{line_score}\n\n'
                 current_at_bat = f'{awayTeam: <4} {awayScore: <2}     {b2}        {inning}\n'
-                current_at_bat += f'{homeTeam: <4} {homeScore: <2}   {b1}   {b3}   {outs} Out\n\n'
+                current_at_bat += f'{homeTeam: <4} {homeScore: <2}   {b3}   {b1}   {outs} Out\n\n'
                 current_at_bat += f'{pitcher_name: <15}  {pitcher_hand[0]}|{pitcher_type}-{pitcher_bonus}\n'
                 current_at_bat += f'{batter_name: <15}  {batter_hand[0]}|{batter_type}'
                 embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
@@ -756,6 +757,12 @@ class Game(commands.Cog):
             # Clear current pitch/swing data
             sql = '''UPDATE pitchData SET current_pitcher=%s, current_batter=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             db.update_database(sql, (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season, session, game_id))
+
+            # Update gameData with new state
+            before_swing, = sheets.read_sheet(sheet_id, assets.calc_cell2['before_swing'])
+            inning, outs, obc, home_score, away_score = before_swing
+            sql = '''UPDATE gameData SET awayScore=%s, homeScore=%s, inning=%s, outs=%s, obc=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
+            db.update_database(sql, (away_score, home_score, inning, outs, obc, league, season, session, game_id))
 
             robo_ump.log_msg(f'{ctx.author} rolled back play {pa_id} for {league.upper()} {season}.{session}.{game_id}')
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')

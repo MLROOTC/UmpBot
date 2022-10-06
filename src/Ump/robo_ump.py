@@ -828,7 +828,7 @@ async def result(bot, league, season, session, game_id):
             channel = bot.get_channel(int(read_config(league_config, league.upper(), 'game_discussion')))
             if rbi != '0':
                 await channel.send(content=f'<@&{batter_team_data[1]}>', embed=result_embed)
-            elif diff == 500 or result_type == 'TP':
+            elif str(diff) == '500' or result_type == 'TP':
                 await channel.send(content=f'<@&{pitcher_team_data[1]}>', embed=result_embed)
 
         # Commit AB to game log and reset the front end calc and then update the box score on reddit
@@ -1047,7 +1047,7 @@ def auto_buttons(bot, embed, league, season, session, game_id):
             await interaction.message.edit(view=None, embed=embed, content=None)
             await interaction.followup.send(content='Using conditional pitch.')
         else:
-            await interaction.response.edit_message(content='Pitcher has not been updated on the ump helper sheet!!')
+            await interaction.followup.send(content='Pitcher has not been updated on the ump helper sheet!!')
         return
 
     async def use_conditional_swing_callback(interaction):
@@ -1067,7 +1067,7 @@ def auto_buttons(bot, embed, league, season, session, game_id):
             await interaction.followup.send(content='Using conditional swing.')
             await ask_for_pitch_change(bot, current_pitcher_id, league, season, session, game_id)
         else:
-            await interaction.response.edit_message(content='Batter has not been updated on the ump helper sheet!!')
+            await interaction.followup.send(content='Batter has not been updated on the ump helper sheet!!')
         return
 
     async def use_original_pitch_callback(interaction):

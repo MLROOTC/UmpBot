@@ -39,9 +39,9 @@ class Pitching(commands.Cog):
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         league, season, session, game_id = game
         state = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
-        if state[0] == 'WAITING FOR PITCH CONFIRMATION':
+        if state[0] == 'WAITING FOR PITCHER CONFIRMATION':
             await ctx.message.add_reaction('👍')
-            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR SWING')
+            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
 
     @commands.command(brief='Submit or change a pitch',
                       description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).',
@@ -86,12 +86,12 @@ class Pitching(commands.Cog):
             description = 'The pitch is in, but a conditional sub is in place. Please check if the conditions for the sub applied BEFORE the pitch came in.\n\nIf it does, please put the sub in the ump sheet before proceeding.'
             embed = discord.Embed(title='Conditional Pitch Check', description=description, color=discord.Color(value=int(color, 16)))
             embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
-            embed.add_field(name='Pitch Requested', value=pitch_requested)
-            embed.add_field(name='Pitch Submitted', value=robo_ump.convert_to_unix_time(ctx.message.created_at))
+            embed.add_field(name='Pitch Requested', value=f'<t:{pitch_requested}:T>' )
+            embed.add_field(name='Pitch Submitted', value=f'<t:{robo_ump.convert_to_unix_time(ctx.message.created_at)}:T>')
             embed.add_field(name='Conditional Pitcher', value=conditional_pitcher_name)
             embed.add_field(name='Conditional Pitcher ID', value=conditional_pitcher)
-            embed.add_field(name='Conditional Pitch Requested', value=conditional_pitch_requested)
-            embed.add_field(name='Conditional Pitch Submitted', value=robo_ump.convert_to_unix_time(conditional_pitch_src.created_at))
+            embed.add_field(name='Conditional Pitch Requested', value=f'<t:{conditional_pitch_requested}:T>')
+            embed.add_field(name='Conditional Pitch Submitted', value=f'<t:{robo_ump.convert_to_unix_time(conditional_pitch_src.created_at)}:T>')
             embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})')
             embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
             ump_hq = robo_ump.read_config(config_ini, 'Channels', 'ump_hq')
