@@ -434,7 +434,7 @@ def get_swing_from_reddit(reddit_comment_url):
                     set_state(league, season, session, game_id, 'WAITING FOR RESULT')
                 return swing
             else:
-                swing_comment.reply(f"Incorrect steal format. Please include one of the following in your swing to steal {assets.steal_types}")
+                swing_comment.reply(f"Incorrect steal format. Please include one of the following in your swing to steal: STEAL 2B, STEAL 3B, STEAL HOME, MULTISTEAL 3B, MULTISTEAL HOME")
                 return None
 
     elif len(numbers_in_comment) == 0:
@@ -469,7 +469,7 @@ async def get_swing_from_reddit_async(reddit_comment_url):
                     set_state(league, season, session, game_id, 'WAITING FOR RESULT')
                 return swing
             else:
-                steal_fail = "Incorrect steal format. Please include one of the following in your swing to steal: STEAL 2B, STEAL 3B, STEAL HOME, MULTISTEAL, 3B MULTISTEAL HOME"
+                steal_fail = "Incorrect steal format. Please include one of the following in your swing to steal: STEAL 2B, STEAL 3B, STEAL HOME, MULTISTEAL 3B, MULTISTEAL HOME"
                 await reddit.reply_comment(reddit_comment_url, steal_fail)
                 return None
     elif len(numbers_in_comment) == 0:
@@ -720,7 +720,13 @@ async def result(bot, league, season, session, game_id):
                 pitch_src = steal_src
 
         # If there's no AB ping, post the entire AB with result as one top level comment.
-        if event == 'IBB' or swing_src.isnumeric():
+        if swing_src:
+            if swing_src.isnumeric():
+                reddit_starter = sheets.read_sheet(sheet_id, assets.calc_cell2['reddit_ping'])
+                for line in reddit_starter:
+                    if len(line) > 0:
+                        reddit_comment += f'{line[0]}  \n'
+        elif event in ['IBB', 'AUTO K', 'AUTO BB', 'STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MSTEAL 3B', 'MSTEAL HOME']:
             reddit_starter = sheets.read_sheet(sheet_id, assets.calc_cell2['reddit_ping'])
             for line in reddit_starter:
                 if len(line) > 0:
@@ -731,7 +737,7 @@ async def result(bot, league, season, session, game_id):
         dm_channel = await current_pitcher.create_dm()
         swing_number = None
         pitch_number = None
-        if not event == 'IBB':
+        if event not in ['IBB', 'AUTO K', 'AUTO BB']:
             try:
                 pitch_src = await dm_channel.fetch_message(int(pitch_src))
             except Exception as e:

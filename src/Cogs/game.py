@@ -487,22 +487,30 @@ class Game(commands.Cog):
             sql = '''SELECT pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one(sql, game)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
-            conditional_pitcher_name, conditional_pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_pitcher,))
-            conditional_pitcher_discord = self.bot.get_user(int(conditional_pitcher_discord))
-            conditional_pitcher_dm_channel = await conditional_pitcher_discord.create_dm()
-            conditional_pitch_src = await conditional_pitcher_dm_channel.fetch_message(int(conditional_pitch_src))
+
+            if conditional_pitch_src:
+                conditional_pitcher_name, conditional_pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_pitcher,))
+                conditional_pitcher_discord = self.bot.get_user(int(conditional_pitcher_discord))
+                conditional_pitcher_dm_channel = await conditional_pitcher_discord.create_dm()
+                conditional_pitch_src = await conditional_pitcher_dm_channel.fetch_message(int(conditional_pitch_src))
+                conditional_pitch_requested = f'<t:{conditional_pitch_requested}:T>'
+                conditional_pitch_submitted = f'<t:{robo_ump.convert_to_unix_time(conditional_pitch_src.created_at)}:T>'
+            else:
+                conditional_pitcher = '-'
+                conditional_pitcher_name = '-'
+                conditional_pitch_requested = '-'
+                conditional_pitch_submitted = '-'
 
             embed = discord.Embed(title='Auto BB Request',
                                   description=f'{ctx.author.mention} has requested an auto BB. Please investigate.',
                                   color=discord.Color(value=int(color, 16)))
             embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
-            embed.add_field(name='Pitch Requested', value=pitch_requested)
+            embed.add_field(name='Pitch Requested', value=f'<t:{pitch_requested}:T>')
             embed.add_field(name='Pitch Submitted', value=robo_ump.convert_to_unix_time(ctx.message.created_at))
             embed.add_field(name='Conditional Pitcher', value=conditional_pitcher_name)
             embed.add_field(name='Conditional Pitcher ID', value=conditional_pitcher)
             embed.add_field(name='Conditional Pitch Requested', value=conditional_pitch_requested)
-            embed.add_field(name='Conditional Pitch Submitted',
-                            value=robo_ump.convert_to_unix_time(conditional_pitch_src.created_at))
+            embed.add_field(name='Conditional Pitch Submitted', value=conditional_pitch_submitted)
             embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})')
             embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
             await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed, self.bot, league, season, session, game_id))
@@ -519,18 +527,27 @@ class Game(commands.Cog):
             sql = '''SELECT swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes = db.fetch_one(sql, game)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
-            conditional_batter_name, conditional_batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_batter,))
-            conditional_batter_discord = self.bot.get_user(int(conditional_batter_discord))
-            conditional_batter_dm_channel = await conditional_batter_discord.create_dm()
-            conditional_swing_src = await conditional_batter_dm_channel.fetch_message(int(conditional_swing_src))
+            if conditional_swing_src:
+                conditional_batter_name, conditional_batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_batter,))
+                conditional_batter_discord = self.bot.get_user(int(conditional_batter_discord))
+                conditional_batter_dm_channel = await conditional_batter_discord.create_dm()
+                conditional_swing_src = await conditional_batter_dm_channel.fetch_message(int(conditional_swing_src))
+                conditional_swing_requested = f'<t:{conditional_swing_requested}:T>'
+                conditional_swing_submitted = f'<t:{robo_ump.convert_to_unix_time(conditional_swing_src.created_at)}:T>'
+            else:
+                conditional_batter = '-'
+                conditional_batter_name = '-'
+                conditional_swing_notes = '-'
+                conditional_swing_requested = '-'
+                conditional_swing_submitted = '-'
 
             embed = discord.Embed(title='Auto K Request', description=f'{ctx.author.mention} has requested an auto K. Please investigate.', color=discord.Color(value=int(color, 16)))
             embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
             embed.add_field(name='Conditional Batter', value=conditional_batter_name, inline=True)
             embed.add_field(name='Conditional Batter ID', value=conditional_batter, inline=True)
             embed.add_field(name='Condition', value=conditional_swing_notes, inline=True)
-            embed.add_field(name='Conditional Time Requested', value=f'<t:{conditional_swing_requested}:T>', inline=True)
-            embed.add_field(name='ConditionalTime Submitted', value=f'<t:{robo_ump.convert_to_unix_time(conditional_swing_src.created_at)}:T>', inline=True)
+            embed.add_field(name='Conditional Time Requested', value=conditional_swing_requested, inline=True)
+            embed.add_field(name='ConditionalTime Submitted', value=conditional_swing_submitted, inline=True)
             embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
             embed.add_field(name='Reddit Thread', value=f'[Link]({thread_url})', inline=True)
             await ctx.send(embed=embed, view=standard_buttons(self.ump_hq, embed, self.bot, league, season, session, game_id))
