@@ -1,6 +1,6 @@
 import configparser
 import time
-import src.Ump.robo_ump as robo_ump
+import Ump.robo_ump as robo_ump
 import praw
 import re
 
@@ -9,6 +9,7 @@ config.read('config.ini')
 client_id = config['Reddit']['client_id']
 client_secret = config['Reddit']['client_secret']
 user_agent = config['Reddit']['user_agent']
+username = config['Reddit']['username']
 root_comment_prefix = 't3_'
 child_comment_prefix = 't1_'
 
@@ -26,7 +27,7 @@ def check_swing():
         author = f'u/{comment.author}'
         if comment.parent_id[:3] == child_comment_prefix:
             parent_comment = reddit.comment(comment.parent_id[3:])
-            if ((author.lower() in parent_comment.body.lower()) or ('steal'.lower() in comment.body.lower())) and regexp:
+            if ((author.lower() in parent_comment.body.lower()) or ('steal'.lower() in comment.body.lower()) and parent_comment.author != username) and regexp:
                 robo_ump.get_swing_from_reddit(f'https://www.reddit.com{comment.permalink}')
 
 
