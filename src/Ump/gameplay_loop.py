@@ -16,6 +16,8 @@ async def update_game(bot, league, season, session, game_id, state):
     if state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT']:
         current_batter, current_pitcher = db.fetch_one('''SELECT current_batter, current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (league, season, session, game_id))
         if not (current_pitcher and current_batter):
+            data = (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season, session, game_id)
+            db.update_database('UPDATE pitchData SET current_batter=%s, current_pitcher=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', data)
             await robo_ump.update_matchup(league, season, session, game_id)
             return
     if state == 'WAITING FOR PITCH':
@@ -34,16 +36,6 @@ async def update_game(bot, league, season, session, game_id, state):
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
     elif state == 'WAITING FOR RESULT':
         await robo_ump.result(bot, league, season, session, game_id)
-    elif state == 'WAITING FOR PITCHER RESPONSE':
-        print('SUB REQUESTED')
-    elif state == 'AUTO REQUESTED':
-        print('AUTO REQUESTED')
-    elif state == 'CONFIRM PITCH':
-        print('CONFIRM PITCH')
-    elif state == 'FINALIZING':
-        print('FINALIZING')
-    elif state == 'COMPLETE':
-        print('COMPLETE')
     return
 
 

@@ -97,7 +97,7 @@ calc_cell2 = {
     'pitch': 'Calc!E10',
     'starting_pitchers': 'Starting Lineups!B16:E16',
     'pitcher_list': 'newGL!I3:I130',
-    'pitcher_performance': 'Box Score!A39:A48',
+    'pitcher_performance': 'Box Score!A39:A43',
     'pitcher_ab': 'Calc!C24:26',
     'play_number': 'Calc!H3',
     'reddit_ping': 'Calc!C16:G19',

@@ -22,11 +22,11 @@ def commit_at_bat(sheet_id):
     play_counter = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
     play_counter = int(play_counter) + 2
     game_update = sheets.read_sheet(sheet_id, assets.calc_cell2['at_bat'])[0]
-    sheets.update_sheet(sheet_id, f'NewGL!G{play_counter}', game_update[0])
-    sheets.update_sheet(sheet_id, f'NewGL!H{play_counter}', game_update[1])
-    sheets.update_sheet(sheet_id, f'NewGL!I{play_counter}', game_update[2])
-    sheets.update_sheet(sheet_id, f'NewGL!J{play_counter}', game_update[3])
-    sheets.update_sheet(sheet_id, f'NewGL!K{play_counter}', game_update[4])
+    sheets.update_sheet(sheet_id, f'NewGL!G{play_counter}', game_update[0], lazy=True)
+    sheets.update_sheet(sheet_id, f'NewGL!H{play_counter}', game_update[1], lazy=True)
+    sheets.update_sheet(sheet_id, f'NewGL!I{play_counter}', game_update[2], lazy=True)
+    sheets.update_sheet(sheet_id, f'NewGL!J{play_counter}', game_update[3], lazy=True)
+    sheets.update_sheet(sheet_id, f'NewGL!K{play_counter}', game_update[4], lazy=True)
     sheets.update_sheet(sheet_id, assets.calc_cell2['pitch'], '', lazy=True)
     sheets.update_sheet(sheet_id, assets.calc_cell2['swing'], '', lazy=True)
     sheets.update_sheet(sheet_id, assets.calc_cell2['event'], 'Swing')
@@ -56,8 +56,7 @@ async def create_ump_sheets(bot, session: int):
                 sheet_id = sheets.copy_ump_sheet(file_id, sheet_title)
                 sheets.update_sheet(sheet_id, assets.calc_cell2['away_team'], away_name)
                 sheets.update_sheet(sheet_id, assets.calc_cell2['home_team'], home_name)
-                log_msg(
-                    f'Created ump sheet {league.upper()} {season}.{session} - {away_team}@{home_team}: <https://docs.google.com/spreadsheets/d/{sheet_id}>')
+                log_msg(f'Created ump sheet {league.upper()} {season}.{session} - {away_team}@{home_team}: <https://docs.google.com/spreadsheets/d/{sheet_id}>')
 
                 # Insert New Game into Database
                 game_id = int(read_config(league_config, league.upper(), 'gameid'))
@@ -82,12 +81,10 @@ async def create_ump_sheets(bot, session: int):
     return
 
 
-async def edit_warning(bot, league, season, session, game_id):
-    # TODO Ping ump warden (ump council?) when someone edits a swing/pitch
-    # include user ID, message id,
+async def edit_warning(bot, warning_msg, league, season, session, game_id):
     ump_hq = read_config(config_ini, 'Channels', 'ump_hq')
     ump_hq = bot.get_channel(int(ump_hq))
-    await ump_hq.send('SWING HAS BEEN EDITED MODS PLS BAN')
+    await ump_hq.send(f"<@{read_config(config_ini, 'Discord', 'ump_council')}> {league.upper()} {season}.{session}.{game_id} | {warning_msg}")
     set_state(league, season, session, game_id, 'PAUSED')
     return
 
@@ -325,8 +322,8 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
         home = 'away'
 
     if discord_id:
-        sql = f'SELECT list_{home}, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
-        current_list, swing_src = db.fetch_one(sql, (league, season, session, game_id))
+        sql = f'SELECT {home}_pitcher, list_{home}, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+        current_pitcher, current_list, swing_src = db.fetch_one(sql, (league, season, session, game_id))
         if current_list:
             current_list = current_list.split()
             current_pitcher = bot.get_user(int(discord_id))
@@ -339,6 +336,8 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
                 current_list = current_list[1:]
                 if len(current_list) == 0:
                     await dm_channel.send('List depleted, use `.queue_pitch` to add more pitches.')
+                    sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                    db.update_database(sql, (None, league, season, session, game_id))
                 else:
                     current_list = ' '.join(current_list)
                     sql = f'''UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
@@ -349,7 +348,8 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
                     await post_at_bat(bot, league, season, session, game_id)
                     set_state(league, season, session, game_id, 'WAITING FOR SWING')
             else:
-                await edit_warning(bot, league, season, session, game_id)
+                warning_msg = f"**{current_pitcher.mention} has edited their pitch. Please investigate.**\n\nPitcher: {get_player_name(player_id)}\nPitcher ID: {player_id}\nPitch Requested: <t:{datetime.datetime.now().timestamp()}:T>\nPitch Submitted: <t:{datetime.datetime.now().timestamp()}:T>\nMessage ID: {[pitch_src.id]}"
+                await edit_warning(bot, warning_msg, league, season, session, game_id)
         else:
             ab_text = sheets.read_sheet(sheet_id, assets.calc_cell2['pitcher_ab'])
             ab_text = f'{ab_text[0][0]}\n{ab_text[1][0]}\n{ab_text[2][0]}'
@@ -514,6 +514,7 @@ def check_for_event(sheet_id, swing_comment):
             return False
     elif 'BUNT' in swing_comment.body.upper():
         set_event(sheet_id, 'BUNT')
+        return True
     elif 'STEAL' in swing_comment.body.upper():
         return False
     else:
@@ -522,7 +523,7 @@ def check_for_event(sheet_id, swing_comment):
 
 def log_msg(message: str):
     hook = Webhook(read_config(config_ini, 'Channels', 'error_log_webhook'))
-    hook.send(message)
+    hook.send(f'<t:{int(datetime.datetime.now().timestamp())}:T> - {message}')
     return
 
 
@@ -741,10 +742,13 @@ async def result(bot, league, season, session, game_id):
             try:
                 pitch_src = await dm_channel.fetch_message(int(pitch_src))
             except Exception as e:
-                print(e)
-                await edit_warning(bot, league, season, session, game_id)
+                set_state(league, season, session, game_id, 'PAUSED')
+                warning_msg = f"I can't find a pitch for {league.upper} {season}.{session}.{game_id} {away_team} @ {home_team}. Something has probably gone wrong with the bot. Please ask the current pitcher to provide a screenshot to confirm their pitch has not been deleted, and then reset the current at bat using .reset <TEAM>."
+                await edit_warning(bot, warning_msg, league, season, session, game_id)
+                log_msg(e)
             if pitch_src.edited_at:
-                await edit_warning(bot, league, season, session, game_id)
+                warning_msg = f"**{current_pitcher.mention} has edited their pitch. Please investigate.**\n\nPitcher: {pitcher_name}\nPitcher ID: {current_pitcher_id}\nPitch Requested: <t:{pitch_requested}:T>\nPitch Submitted: <t:{pitch_submitted}:T>\nMessage ID: {pitch_src.id}"
+                await edit_warning(bot, warning_msg, league, season, session, game_id)
                 return None
             else:
                 pitch_number = int(re.sub(regex, '', pitch_src.content))
@@ -756,7 +760,8 @@ async def result(bot, league, season, session, game_id):
             else:
                 swing_comment = await reddit.get_comment_url(swing_src)
                 if swing_comment.edited:
-                    await edit_warning(bot, league, season, session, game_id)
+                    warning_msg = f"**{batter_name} has edited their swing. Please investigate.**\n\nBatter: {batter_name}\nPitcher ID: {current_batter_id}\nPitch Requested: <t:{swing_requested}:T>\nPitch Submitted: <t:{swing_submitted}:T>\nMessage ID: {swing_src}"
+                    await edit_warning(bot, warning_msg, league, season, session, game_id)
                     return None
                 swing_number = await get_swing_from_reddit_async(f'https://www.reddit.com{swing_comment.permalink}')
 
@@ -871,7 +876,7 @@ def set_swing_pitch(sheet_id, swing: int, pitch: int):
 def set_state(league, season, session, game_id, state):
     db.update_database('''UPDATE gameData SET state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s''',
                        (state, league, season, session, game_id))
-    log_msg(f'{datetime.datetime.utcnow()} - {league.upper()} {season}.{session}.{game_id} state changed to {state}')
+    log_msg(f'{league.upper()} {season}.{session}.{game_id} state changed to {state}')
 
 
 async def starting_lineup(league, season, session, game_id):
@@ -913,63 +918,52 @@ async def subs(league, season, session, game_id):
         home_position_changes = sheets.read_sheet(sheet_id, assets.calc_cell['home_position_changes'])
         sql_insert = 'INSERT IGNORE INTO lineups (league, season, session, game_id, player_id, position, batting_order, home, starter) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) '
         for sub in away_subs:
-            player_out, player_in, position = sub
-            player_out = get_player_id(player_out)
-            player_in = get_player_id(player_in)
-            batting_order = db.fetch_data(
-                '''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''',
-                (league, season, session, game_id, player_out, False))
-            if batting_order:
-                batting_order = batting_order[-1][0]
-            data = (league, season, session, game_id, player_in, position, batting_order, 0, 0)
-            check = db.fetch_one(
-                'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s',
-                data)
-            if not check:
-                db.update_database(sql_insert, data)
+            if sub:
+                player_out, player_in, position = sub
+                player_out = get_player_id(player_out)
+                player_in = get_player_id(player_in)
+                batting_order = db.fetch_data('''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player_out, False))
+                if batting_order:
+                    batting_order = batting_order[-1][0]
+                data = (league, season, session, game_id, player_in, position, batting_order, 0, 0)
+                check = db.fetch_one('SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
+                if not check:
+                    db.update_database(sql_insert, data)
         for sub in home_subs:
-            player_out, player_in, position = sub
-            player_out = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_out,))[0]
-            player_in = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_in,))[0]
-            batting_order = db.fetch_data(
-                '''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''',
-                (league, season, session, game_id, player_out, True))
-            if batting_order:
-                batting_order = batting_order[-1][0]
-            data = (league, season, session, game_id, player_in, position, batting_order, 1, 0)
-            check = db.fetch_one(
-                'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s',
-                data)
-            if not check:
-                db.update_database(sql_insert, data)
+            if sub:
+                player_out, player_in, position = sub
+                player_out = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_out,))[0]
+                player_in = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_in,))[0]
+                batting_order = db.fetch_data( '''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''',
+                    (league, season, session, game_id, player_out, True))
+                if batting_order:
+                    batting_order = batting_order[-1][0]
+                data = (league, season, session, game_id, player_in, position, batting_order, 1, 0)
+                check = db.fetch_one( 'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
+                if not check:
+                    db.update_database(sql_insert, data)
         for sub in away_position_changes:
-            player, old_pos, new_pos = sub
-            player = get_player_id(player)
-            data = db.fetch_data(
-                '''SELECT position, batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''',
-                (league, season, session, game_id, player, False))
-            if data:
-                position, batting_order = data[-1]
-            data = (league, season, session, game_id, player, new_pos, batting_order, 0, 0)
-            check = db.fetch_one(
-                'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s',
-                data)
-            if not check:
-                db.update_database(sql_insert, data)
+            if sub:
+                player, old_pos, new_pos = sub
+                player = get_player_id(player)
+                data = db.fetch_data('''SELECT position, batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player, False))
+                if data:
+                    position, batting_order = data[-1]
+                data = (league, season, session, game_id, player, new_pos, batting_order, 0, 0)
+                check = db.fetch_one('SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
+                if not check:
+                    db.update_database(sql_insert, data)
         for sub in home_position_changes:
-            player, old_pos, new_pos = sub
-            player = get_player_id(player)
-            data = db.fetch_data(
-                '''SELECT position, batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''',
-                (league, season, session, game_id, player, True))
-            if data:
-                position, batting_order = data[-1]
-            data = (league, season, session, game_id, player, new_pos, batting_order, 1, 0)
-            check = db.fetch_one(
-                'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s',
-                data)
-            if not check:
-                db.update_database(sql_insert, data)
+            if sub:
+                player, old_pos, new_pos = sub
+                player = get_player_id(player)
+                data = db.fetch_data('''SELECT position, batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player, True))
+                if data:
+                    position, batting_order = data[-1]
+                data = (league, season, session, game_id, player, new_pos, batting_order, 1, 0)
+                check = db.fetch_one('SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
+                if not check:
+                    db.update_database(sql_insert, data)
         print('done')
 
 
@@ -1022,30 +1016,37 @@ def auto_buttons(bot, embed, league, season, session, game_id):
         set_event(sheet_id, 'AUTO K')
         set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         await interaction.message.edit(view=None, embed=embed, content=None)
-        await interaction.followup.send(content='Auto K issued.')
+        await interaction.followup.send(content=f'Auto K issued by {interaction.user}.')
 
     async def auto_bb_callback(interaction):
         await interaction.response.defer()
         set_event(sheet_id, 'AUTO BB')
         set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         await interaction.message.edit(view=None, embed=embed, content=None)
-        await interaction.followup.send(content='Auto BB issued.')
+        await interaction.followup.send(content=f'Auto BB issued by {interaction.user}.')
 
     async def use_conditional_pitch_callback(interaction):
         await interaction.response.defer()
         matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
-        if matchup_info[0][3] == conditional_batter_id:
+        if matchup_info[0][3] == conditional_pitcher_id:
             conditional_pitcher, conditional_pitch_requested, conditional_swing_src = db.fetch_one('SELECT conditional_pitcher, conditional_pitch_requested, conditional_pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
             conditional_pitcher_name, conditional_pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_pitcher,))
             conditional_pitcher_discord = bot.get_user(int(conditional_pitcher_discord))
             conditional_pitcher_dm_channel = await conditional_pitcher_discord.create_dm()
             conditional_pitch_src = await conditional_pitcher_dm_channel.fetch_message(int(conditional_swing_src))
             conditional_pitch_submitted = int(conditional_pitch_src.created_at.timestamp())
-            sql = 'UPDATE pitchData SET current_pitcher=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
-            db.update_database(sql, (conditional_pitcher_id, conditional_pitch_requested, conditional_pitch_submitted, None, None, None, league, season, session, game_id))
+
+            current_batter_id, current_pitcher_id = await update_matchup(league, season, session, game_id)
+            away_pitcher = sheets.read_sheet(sheet_id, assets.calc_cell2['away_pitcher'])
+            home_pitcher = sheets.read_sheet(sheet_id, assets.calc_cell2['home_pitcher'])
+            away_pitcher = get_player_id(away_pitcher[0][0])
+            home_pitcher = get_player_id(home_pitcher[0][0])
+            sql = 'UPDATE pitchData SET away_pitcher=%s, home_pitcher=%s, current_pitcher=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
+            db.update_database(sql, (away_pitcher, home_pitcher, current_pitcher_id, conditional_pitch_requested, conditional_pitch_submitted, conditional_pitch_src.id, None, None, None, None, league, season, session, game_id))
+            await subs(league, season, session, game_id)
             set_state(league, season, session, game_id, 'WAITING FOR SWING')
             await interaction.message.edit(view=None, embed=embed, content=None)
-            await interaction.followup.send(content='Using conditional pitch.')
+            await interaction.followup.send(content=f'{interaction.user} used conditional pitch.')
         else:
             await interaction.followup.send(content='Pitcher has not been updated on the ump helper sheet!!')
         return
@@ -1062,9 +1063,10 @@ def auto_buttons(bot, embed, league, season, session, game_id):
             conditional_swing_submitted = int(conditional_swing_src.created_at.timestamp())
             sql = 'UPDATE pitchData SET swing_src=%s, current_batter=%s, swing_requested=%s, swing_submitted=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
             db.update_database(sql, (conditional_swing_src.id, conditional_batter_id, conditional_swing_requested, conditional_swing_submitted, None, None, None, league, season, session, game_id))
+            await subs(league, season, session, game_id)
             current_pitcher_id, = db.fetch_one('SELECT current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
             await interaction.message.edit(view=None, embed=embed, content=None)
-            await interaction.followup.send(content='Using conditional swing.')
+            await interaction.followup.send(content=f'{interaction.user} used conditional swing.')
             await ask_for_pitch_change(bot, current_pitcher_id, league, season, session, game_id)
         else:
             await interaction.followup.send(content='Batter has not been updated on the ump helper sheet!!')
@@ -1076,7 +1078,7 @@ def auto_buttons(bot, embed, league, season, session, game_id):
         db.update_database(sql, (None, None, None, league, season, session, game_id))
         set_state(league, season, session, game_id, 'WAITING FOR SWING')
         await interaction.message.edit(view=None, embed=embed, content=None)
-        await interaction.followup.send(content='Using original pitch.')
+        await interaction.followup.send(content=f'{interaction.user} used original pitch.')
         return
 
     async def use_original_swing_callback(interaction):
@@ -1085,13 +1087,13 @@ def auto_buttons(bot, embed, league, season, session, game_id):
         db.update_database(sql, (None, None, None, league, season, session, game_id))
         set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         await interaction.message.edit(view=None, embed=embed, content=None)
-        await interaction.followup.send(content='Using original swing.')
+        await interaction.followup.send(content=f'{interaction.user} used original swing.')
         return
 
     async def no_auto_callback(interaction):
         await interaction.response.defer()
-        await interaction.response.edit_message(view=None, embed=embed)
-        await interaction.followup.send(content='Auto request rejected.')
+        await interaction.message.edit(view=None, embed=embed)
+        await interaction.followup.send(content=f'Auto request rejected by {interaction.user}.')
 
     view = View(timeout=None)
 
@@ -1152,12 +1154,12 @@ def umpdate_buttons(bot, sheet_id, embed, league, season, session, game_id):
             await ask_for_pitch_change(bot, current_pitcher_id, league, season, session, game_id)
         elif old_state:
             set_state(league, season, session, game_id, old_state)
-        await interaction.message.edit(content='Sub processed.', view=None, embed=embed)
+        await interaction.message.edit(content=f'Sub processed by {interaction.user}.', view=None, embed=embed)
         # TODO update box score
         return
 
     async def cancel_request(interaction):
-        await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
+        await interaction.response.edit_message(content=f'Request cancelled by {interaction.user}.', view=None, embed=None)
         return
 
     submit.callback = submit_callback

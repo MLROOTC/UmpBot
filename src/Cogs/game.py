@@ -106,7 +106,7 @@ class Game(commands.Cog):
         await ctx.message.add_reaction('👍')
         if pitch_src and state != 'PAUSED':
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
-        robo_ump.log_msg(f'{ctx.author.mention} swung via DM for {game[0]} {game[1]}.{game[2]}.{game[3]} ')
+        robo_ump.log_msg(f'{ctx.author.name} swung via DM for {game[0]} {game[1]}.{game[2]}.{game[3]} ')
 
     @commands.command(brief='Set awards and close out the game in the database',
                       description='Set awards, update the game thread, adudit the game log, clear out pitch data from the database, marks the game as complete, and sends an endgame ping in main.')
@@ -116,6 +116,7 @@ class Game(commands.Cog):
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         away_team, away_score, home_team, home_score, reddit_thread, = db.fetch_one('SELECT awayTeam, awayScore, homeTeam, homeScore, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+
         scoring_plays = sheets.read_sheet(sheet_id, assets.calc_cell2['scoring_plays'])
         pitcher_performance = sheets.read_sheet(sheet_id, assets.calc_cell2['pitcher_performance'])
         line_score = sheets.read_sheet(sheet_id, assets.calc_cell2['line_score'])
@@ -129,13 +130,14 @@ class Game(commands.Cog):
         line_3 = line_3.replace('|', ' ')
         line_3 = line_3.replace('*', '')
 
-        confirm = Button(label="Submit Request", style=discord.ButtonStyle.green)
+        confirm = Button(label="Finalize Game", style=discord.ButtonStyle.green)
         cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
         async def send_request(interaction):
-            await interaction.response.defer()
+            await interaction.response.defer(thinking=True)
             awards = sheets.read_sheet(sheet_id, assets.calc_cell2['awards'])[0]
             if len(awards) == 4:
+                await interaction.message.edit(content='Closing out game', view=None, embed=embed)
                 # Get awards from game sheet
                 winning_pitcher = awards[0]
                 losing_pitcher = awards[1]
@@ -158,7 +160,7 @@ class Game(commands.Cog):
                 sql = 'UPDATE pitchData SET home_pitcher=%s, away_pitcher=%s, current_pitcher=%s, current_batter=%s, pitch_requested=%s, pitch_submitted=%s, pitch_src=%s, steal_src=%s, list_home=%s, list_away=%s, swing_requested=%s, swing_submitted=%s, swing_src=%s, conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes=%s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
                 data = (None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, league, season, session, game_id)
                 db.update_database(sql, data)
-                sql = 'UPDATE gameData SET complete=%s, winningPitcher=%s, losingPitcher=%s, save=%s, potg=Gs, state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
+                sql = 'UPDATE gameData SET complete=%s, winningPitcher=%s, losingPitcher=%s, save=%s, potg=%s, state=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
                 data = (True, winning_pitcher_id, losing_pitcher_id, save_id, potg_id, 'COMPLETE', league, season, session, game_id)
                 db.update_database(sql, data)
 
@@ -168,16 +170,13 @@ class Game(commands.Cog):
                 for role in role_ids:
                     game_discussion_ping += f'<@&{role[0]}> '
                 for i in range(len(embed.fields)):
-                    if embed.fields[i].name == 'Sheet ID':
-                        embed.remove_field(i)
-                    elif embed.fields[i].name == 'Game Thread':
+                    if embed.fields[i].name == 'Ump Sheet':
                         embed.remove_field(i)
                 embed.add_field(name='Winning Pitcher', value=winning_pitcher)
                 embed.add_field(name='Losing Pitcher', value=losing_pitcher)
                 if save:
                     embed.add_field(name='Save', value=save)
                 embed.add_field(name='Player of the Game', value=potg)
-                embed.add_field(name='Game Thread', value=f'[Link]({reddit_thread})')
                 channel = robo_ump.get_game_discussion(self.bot, league)
                 await channel.send(content=game_discussion_ping, embed=embed)
                 await interaction.followup.send(content='Game closed.')
@@ -201,32 +200,41 @@ class Game(commands.Cog):
                 scoring_play_list += f'{scoring_play[0]}\n'
         # Pitcher performance
         pitcher_list = ''
-        for line in pitcher_performance[0]:
-            pitcher_pair = line.split('|')
-            pitcher_1_name = pitcher_pair[0]
-            pitcher_1_ip = pitcher_pair[1]
-            pitcher_1_h = pitcher_pair[2]
-            pitcher_1_er = pitcher_pair[3]
-            pitcher_1_BB = pitcher_pair[4]
-            pitcher_1_SO = pitcher_pair[5]
-            pitcher_1_ERA = pitcher_pair[6]
-            pitcher_list += f'{pitcher_1_name} - **{pitcher_1_ip}** IP **{pitcher_1_h}** H **{pitcher_1_er}** ER **{pitcher_1_BB}**  BB **{pitcher_1_SO}** Ks **{pitcher_1_ERA}** ERA\r\n'
-            if len(pitcher_pair) >= 13:
-                pitcher_2_name = pitcher_pair[7]
-                pitcher_2_ip = pitcher_pair[8]
-                pitcher_2_h = pitcher_pair[9]
-                pitcher_2_er = pitcher_pair[10]
-                pitcher_2_BB = pitcher_pair[11]
-                pitcher_2_SO = pitcher_pair[12]
-                pitcher_2_ERA = pitcher_pair[13]
-                pitcher_list += f'{pitcher_2_name} - **{pitcher_2_ip}** IP **{pitcher_2_h}** H **{pitcher_2_er}** ER **{pitcher_2_BB}**  BB **{pitcher_2_SO}** Ks **{pitcher_2_ERA}** ERA\n\n'
+        for line in pitcher_performance:
+            if line:
+                pitcher_pair = line[0].split('|')
+                pitcher_1_name = pitcher_pair[0]
+                pitcher_1_ip = pitcher_pair[1]
+                pitcher_1_h = pitcher_pair[2]
+                pitcher_1_er = pitcher_pair[3]
+                pitcher_1_BB = pitcher_pair[4]
+                pitcher_1_SO = pitcher_pair[5]
+                pitcher_1_ERA = pitcher_pair[6]
+                if pitcher_1_name != '--':
+                    pitcher_list += f'**{pitcher_1_name}** - **{pitcher_1_ip}** IP **{pitcher_1_h}** H **{pitcher_1_er}** ER **{pitcher_1_BB}**  BB **{pitcher_1_SO}** Ks **{pitcher_1_ERA}**'
+                    if pitcher_1_ERA != 'Pitching Debut':
+                        pitcher_list += ' ERA'
+                    pitcher_list += '\n'
+                if len(pitcher_pair) >= 13:
+                    pitcher_2_name = pitcher_pair[7]
+                    pitcher_2_ip = pitcher_pair[8]
+                    pitcher_2_h = pitcher_pair[9]
+                    pitcher_2_er = pitcher_pair[10]
+                    pitcher_2_BB = pitcher_pair[11]
+                    pitcher_2_SO = pitcher_pair[12]
+                    pitcher_2_ERA = pitcher_pair[13]
+                    if pitcher_2_name != '--':
+                        pitcher_list += f'**{pitcher_2_name}** - **{pitcher_2_ip}** IP **{pitcher_2_h}** H **{pitcher_2_er}** ER **{pitcher_2_BB}**  BB **{pitcher_2_SO}** Ks **{pitcher_2_ERA}**'
+                        if pitcher_2_ERA != 'Pitching Debut':
+                            pitcher_list += ' ERA'
+                        pitcher_list += '\n'
 
         embed = discord.Embed(title=f'{away_team} @ {home_team}', description=f'**Final Score**\n```   {line_1}\n{line_2}\n{line_3}```\r\n**{away_team.upper()}** - {away_score}\n**{home_team.upper()}** - {home_score}')
         embed.add_field(name='Scoring Plays', value=f'```{scoring_play_list}```', inline=False)
         embed.add_field(name='Pitching Lines', value=f'{pitcher_list}', inline=False)
         embed.add_field(name='Game Thread', value=f'[Link]({reddit_thread})')
-        embed.add_field(name='Sheet ID', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
-        await ctx.send(content=f'Set awards', embed=embed, view=view)
+        embed.add_field(name='Ump Sheet', value=f'[Link](https://docs.google.com/spreadsheets/d/{sheet_id})')
+        await ctx.send(content=f'Open the **Ump Sheet** and set the awards on the **Calc** tab. When done, click the **Finalize Game** button.', embed=embed, view=view)
 
     @commands.command(brief='Forces the bot to result an at-bat',
                       description='Forces the bot to result an at-bat',
@@ -280,7 +288,6 @@ class Game(commands.Cog):
                     for scoring_play in scoring_plays:
                         scoring_play_list += f'{scoring_play[0]}\n'
 
-                # TODO why is it only showing one line?
                 pitcher_list = ''
                 for line in pitcher_performance:
                     pitcher_pair = line[0].split('|')
@@ -428,7 +435,7 @@ class Game(commands.Cog):
                 db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s, current_batter=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
                 await ctx.message.add_reaction('👍')
                 await ctx.send(f'Event set to {event}')
-                robo_ump.log_msg(f'{ctx.author.mention} issued a GM steal via DMs for {league} {season}.{session}.{game_id}')
+                robo_ump.log_msg(f'{ctx.author.name} issued a GM steal via DMs for {league} {season}.{session}.{game_id}')
                 sql = 'SELECT pitch_requested, pitch_src, swing_requested, swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'
                 pitch_requested, pitch_src, swing_requested, swing_src = db.fetch_one(sql, (league, season, session, game_id))
                 if pitch_src and swing_src:
@@ -450,7 +457,7 @@ class Game(commands.Cog):
             event = robo_ump.set_event(sheet_id, 'IBB')
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
             await ctx.send(f'Event set to {event}')
-            robo_ump.log_msg(f'{ctx.author.mention} issued an IBB for {league} {season}.{session}.{game_id}')
+            robo_ump.log_msg(f'{ctx.author.name} issued an IBB for {league} {season}.{session}.{game_id}')
 
     @commands.command(brief='Set the infield in for the current at bat',
                       description='Set the infield in for the current at bat. Re-posts the at bat ping if one has already been posted.',
@@ -460,10 +467,15 @@ class Game(commands.Cog):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             sheet_id = robo_ump.get_sheet(league, season, session, game_id)
-            event = robo_ump.set_event(sheet_id, 'Infield In')
-            await ctx.send(f'Event set to {event}')
-            robo_ump.log_msg(f'{ctx.author.mention} set Infield In for {league} {season}.{session}.{game_id}')
-            # TODO re-post at bat ping if swing has already been requested
+            pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+            if not swing_submitted:
+                robo_ump.log_msg(f'{ctx.author.name} set Infield In for {league} {season}.{session}.{game_id}')
+                event = robo_ump.set_event(sheet_id, 'Infield In')
+                await ctx.send(f'Event set to {event}')
+                if pitch_submitted and swing_requested:
+                    await robo_ump.post_at_bat(self.bot, league, season, session, game_id)
+            else:
+                await ctx.send("Swing already submitted, can't call infield in now.")
 
     @commands.command(brief='Pause the game from advancing',
                       description='Allows GMs to pause the game from automatically resulting, prompting for a pitch, or posting an AB on reddit.',
@@ -472,7 +484,7 @@ class Game(commands.Cog):
         if robo_ump.player_is_allowed(ctx.author.id, team):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-            robo_ump.log_msg(f'{datetime.datetime.now()} - {ctx.author.name} paused game {league} {season}.{session}.{game_id}')
+            robo_ump.log_msg(f'{ctx.author.name} paused game {league} {season}.{session}.{game_id}')
             robo_ump.set_state(league, season, session, game_id, 'PAUSED')
             await ctx.message.add_reaction('👍')
 
@@ -485,9 +497,15 @@ class Game(commands.Cog):
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
             thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
-            sql = '''SELECT pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            pitch_requested, pitch_submitted, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one(sql, game)
+            sql = '''SELECT current_pitcher, pitch_requested, pitch_submitted, pitch_src, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+            current_pitcher, pitch_requested, pitch_submitted, pitch_src, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one(sql, game)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
+            pitcher_name = robo_ump.get_player_name(current_pitcher)
+
+            if pitch_src:
+                pitch_submitted = f'<t:{pitch_submitted}:T>'
+            else:
+                pitch_submitted = '-'
 
             if conditional_pitch_src:
                 conditional_pitcher_name, conditional_pitcher_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_pitcher,))
@@ -506,9 +524,11 @@ class Game(commands.Cog):
                                   description=f'{ctx.author.mention} has requested an auto BB. Please investigate.',
                                   color=discord.Color(value=int(color, 16)))
             embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
+            embed.add_field(name='Pitcher', value=pitcher_name, inline=False)
+            embed.add_field(name='Pitcher ID', value=current_pitcher)
             embed.add_field(name='Pitch Requested', value=f'<t:{pitch_requested}:T>')
-            embed.add_field(name='Pitch Submitted', value=robo_ump.convert_to_unix_time(ctx.message.created_at))
-            embed.add_field(name='Conditional Pitcher', value=conditional_pitcher_name)
+            embed.add_field(name='Pitch Submitted', value=pitch_submitted)
+            embed.add_field(name='Conditional Pitcher', value=conditional_pitcher_name, inline=False)
             embed.add_field(name='Conditional Pitcher ID', value=conditional_pitcher)
             embed.add_field(name='Conditional Pitch Requested', value=conditional_pitch_requested)
             embed.add_field(name='Conditional Pitch Submitted', value=conditional_pitch_submitted)
@@ -713,6 +733,19 @@ class Game(commands.Cog):
             embed.set_author(name=f'{ctx.author}', icon_url=logo_url)
             embed.add_field(name='State', value=state, inline=False)
             prompt = await ctx.send(content='Use the drop down menus to select the player you want subbed out, the player you want subbed in, and their new position. You can submit multiple substitutions in one request. If you mess up, hit cancel and start over. When you hit submit, a request will be sent to #umpires in main for the sub to be processed.', view=view, embed=embed)
+
+    @commands.command(brief='Reset the current at-bat',
+                      description='Resets the current at bat from scratch. The pitcher will be prompted for a new pitch, the batters previous swing will be ignored, and any results are invalid.',
+                      aliases=['reset'])
+    @commands.has_role(umpire_role)
+    async def reset_ab(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        db.update_database('UPDATE pitchData SET current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, None, league, season, session, game_id))
+        robo_ump.log_msg(f'{ctx.author.name} reset the current at bat for {league.upper()} {season}.{session}.{game_id}')
+        robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
+        await ctx.send('The at bat has been reset.')
+        return
 
     @commands.command(brief='Roll back the last play',
                       description='Removes the previous play from the game log and the PALogs table in the database, and sets the game state back to the start of the previous at-bat.')

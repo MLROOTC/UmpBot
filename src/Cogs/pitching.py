@@ -1,10 +1,11 @@
 import discord
+import re
 from discord.ext import commands
 import src.db_controller as db
 import src.Ump.robo_ump as robo_ump
 
 config_ini = 'config.ini'
-
+regex = "[^0-9]"
 
 class Pitching(commands.Cog):
 
@@ -161,8 +162,7 @@ class Pitching(commands.Cog):
             print_list = '**Current List:**\n'
             for pitch in current_list:
                 message = await ctx.fetch_message(int(pitch))
-                message = message.content.replace('.queue_pitch ', '')
-                print_list += f'{message}\n'
+                print_list += f"{re.sub(regex, '', message.content)}\n"
             await ctx.send(print_list)
         else:
             await ctx.send('Current list is empty.')
