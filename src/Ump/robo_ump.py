@@ -13,7 +13,6 @@ import src.Ump.flavor_text_generator as flavor
 config_parser = configparser.ConfigParser()
 config_ini = 'config.ini'
 league_config = 'league.ini'
-master_ump_sheet = "1eccCs-PQfQ_vRt3yziEgTTjNZt9fGXEb3OfQCUh5FEk"
 regex = "[^0-9]"
 lineup_string_check = "That\'s a good lineup!"
 
@@ -34,6 +33,7 @@ def commit_at_bat(sheet_id):
 
 
 async def create_ump_sheets(bot, session: int):
+    master_ump_sheet = read_config(config_ini, 'URLs', 'schedule_sheet_id')
     games = sheets.read_sheet(master_ump_sheet, f'Session {session}')
     for game in games:
         if game[0] != 'League':

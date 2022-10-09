@@ -42,22 +42,9 @@ class Admin(commands.Cog):
         else:
             await ctx.send('Something went wrong.')
 
-    @commands.command(brief='Add an upmire to the database',
-                      description='Adds a discord user to the umpire table in the database. @ the discord user and then'
-                            ' provide their player ID.\n\nNote: Tech role is required to use this command.')
-    @commands.has_role(ump_admin)
-    async def add_ump(self, ctx, member: discord.Member, player_id):
-        player_id = int(player_id)
-        sql = '''SELECT * FROM playerData WHERE playerID=%s'''
-        player = db.fetch_data(sql, (int(player_id),))
-        ump_data = (player[0][1], member.id, player_id)
-        sql = '''INSERT INTO umpData(umpName, discordID, playerID) VALUES (%s, %s, %s)'''
-        db.update_database(sql, ump_data)
-        await ctx.send('%s added to ump database.' % member.display_name)
-
     @commands.has_role(league_ops_role)
-    @commands.command(brief='',
-                      description='')
+    @commands.command(brief='Generate draft imagines',
+                      description='Generate images for players being drafted.')
     async def draft(self, ctx, draft_round, draft_pick, team, *, player_name):
         team_data = db.fetch_data('SELECT name, color, logo_url FROM teamData WHERE abb=%s', (team,))
         if not team_data:
@@ -172,15 +159,6 @@ class Admin(commands.Cog):
                         else:
                             error_log.send('Failed to set user ID for <@%s>' % member.id)
         await ctx.send('Done.')
-
-    @commands.command(brief='Removes a discord user as an umpire',
-                      description='Adds a discord user to the umpire table in the database. @ the discord user as an '
-                                  'argument.\n\nNote: Tech role is required to use this command.')
-    @commands.has_role(ump_admin)
-    async def remove_ump(self, ctx, member: discord.Member):
-        sql = '''DELETE FROM umpData WHERE discordID=%s'''
-        db.update_database(sql, (member.id,))
-        await ctx.send('%s removed from ump database.' % member.display_name)
 
     @commands.command(brief='Removes a team\'s existing webhook URL',
                       description='Removes a webhook URL from the database.\n\nNote: Tech role is required to use this'
