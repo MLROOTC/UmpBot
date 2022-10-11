@@ -17,6 +17,7 @@ class Doam(commands.Cog):
     @commands.command(brief='',
                       description='',
                       aliases=['doam'])
+    @commands.has_role(doam_admin_role)
     async def dildoam(self, ctx):
         doam_channel = self.bot.get_channel(doam_channel_id)
 

@@ -3,16 +3,19 @@ import random
 from dhooks import Webhook
 import discord
 from discord.app_commands import MissingRole, CommandInvokeError
+from discord.ext.commands import CommandNotFound, MissingRequiredArgument
 from discord.ext import commands, tasks
 import os
 import configparser
-
-from discord.ext.commands import CommandNotFound, MissingRequiredArgument
+import logging
 from googleapiclient.errors import HttpError
 
-from src.Ump import gameplay_loop
-from src.Cogs import player
+from Ump import gameplay_loop
+from Cogs import player
 
+
+logger = logging.getLogger('logger')
+logger.setLevel(logging.ERROR)
 intents = discord.Intents.all()
 intents.members = True
 
@@ -47,6 +50,7 @@ async def on_ready():
 
 @bot.command(brief='Restarts the scoreboard task',
              description='')
+@commands.has_role(ump_admin)
 async def restart_scoreboard(ctx):
     scoreboard.restart()
     await ctx.message.add_reaction('✅')
@@ -54,6 +58,7 @@ async def restart_scoreboard(ctx):
 
 @bot.command(brief='Restarts the scoreboard task',
              description='')
+@commands.has_role(ump_admin)
 async def restart_gameplay(ctx):
     ump_bot.restart()
     await ctx.message.add_reaction('✅')

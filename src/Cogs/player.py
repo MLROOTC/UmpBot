@@ -35,7 +35,7 @@ class Player(commands.Cog):
         await ctx.send(self.config_ini['URLs']['bunt'])
 
     @commands.command(brief='Calculates an AB result. Use .help calc for more info.',
-                      description='Calculates a result after being passed in a pitcher, batter, swing, and deprecated_pitch. Park is an optional argument.\n\nFormat:\n\n\t.calc <batterName>; <swing#>; <pitcherName>; <deprecated_pitch#>; <park>')
+                      description='Calculates a result after being passed in a pitcher, batter, swing, and pitch. Park is an optional argument.\n\nFormat:\n\n\t.calc <batterName>; <swing#>; <pitcherName>; <pitch#>; <park>')
     async def calc(self, ctx, *, calc_data):
         result_types = ['HR', '3B', '2B', '1B', 'BB', 'FO', 'K', 'PO', 'RGO', 'LGO']
         calc_data = calc_data.replace(' ;', ';')

@@ -250,11 +250,11 @@ async def fetch_game_conditional_swing(ctx, bot):
 
 def fetch_game_team(team, season, session):
     if season is not None and session is not None:
-        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) ORDER BY league, season, session, gameID'''
-        data = (team, team, season, session)
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE (awayTeam=%s OR homeTeam=%s) AND (season=%s AND session=%s) AND complete=%s ORDER BY league, season, session, gameID'''
+        data = (team, team, season, session, 0)
     else:
-        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s ORDER BY league, season, session, gameID'''
-        data = (team, team)
+        sql = '''SELECT league, season, session, gameID FROM gameData WHERE awayTeam=%s OR homeTeam=%s AND complete=%s ORDER BY league, season, session, gameID'''
+        data = (team, team, 0)
     games = db.fetch_data(sql, data)
     if games:
         return games[-1]
