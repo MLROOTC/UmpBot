@@ -412,7 +412,6 @@ def get_sheet(league, season, session, game_id):
 
 def get_swing_from_reddit(reddit_comment_url):
     swing_comment = reddit.get_comment(reddit_comment_url)
-
     numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
@@ -425,14 +424,18 @@ def get_swing_from_reddit(reddit_comment_url):
             # Check for steal/bunt/etc
             event_check = check_for_event(sheet_id, swing_comment)
             if event_check:
-                # Write swing src, swing submitted to database
-                swing_submitted = swing_comment.created_utc
-                sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-                db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
+                # make sure the person swinging is actually up to bat
+                comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s', (f'/u/{swing_comment.author.lower}',))
+                current_batter, = db.fetch_one('SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+                if comment_author_id == current_batter or 'STEAL' in swing_comment.body.upper():
+                    # Write swing src, swing submitted to database
+                    swing_submitted = swing_comment.created_utc
+                    sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                    db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
 
-                if state == 'WAITING FOR SWING':
-                    set_state(league, season, session, game_id, 'WAITING FOR RESULT')
-                return swing
+                    if state == 'WAITING FOR SWING':
+                        set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+                    return swing
             else:
                 swing_comment.reply(f"Incorrect steal format. Please include one of the following in your swing to steal: STEAL 2B, STEAL 3B, STEAL HOME, MULTISTEAL 3B, MULTISTEAL HOME")
                 return None
@@ -461,13 +464,20 @@ async def get_swing_from_reddit_async(reddit_comment_url):
             # Check for steal/bunt/etc
             event_check = check_for_event(sheet_id, swing_comment)
             if event_check:
-                # Write swing src, swing submitted to database
-                swing_submitted = int(swing_comment.created_utc)
-                sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-                db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
-                if state == 'WAITING FOR SWING':
-                    set_state(league, season, session, game_id, 'WAITING FOR RESULT')
-                return swing
+                # make sure the person swinging is actually up to bat
+                comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s',
+                                                  (f'/u/{swing_comment.author.lower}',))
+                current_batter, = db.fetch_one(
+                    'SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s',
+                    (league, season, session, game_id))
+                if comment_author_id == current_batter or 'STEAL' in swing_comment.body.upper():
+                    # Write swing src, swing submitted to database
+                    swing_submitted = int(swing_comment.created_utc)
+                    sql = '''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                    db.update_database(sql, (swing_comment.id, swing_submitted, league, season, session, game_id))
+                    if state == 'WAITING FOR SWING':
+                        set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+                    return swing
             else:
                 steal_fail = "Incorrect steal format. Please include one of the following in your swing to steal: STEAL 2B, STEAL 3B, STEAL HOME, MULTISTEAL 3B, MULTISTEAL HOME"
                 await reddit.reply_comment(reddit_comment_url, steal_fail)
