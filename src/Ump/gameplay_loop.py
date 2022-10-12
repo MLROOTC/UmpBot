@@ -8,7 +8,13 @@ async def gameplay_loop(bot):
     for game in active_games:
         league, season, session, game_id, state = game
         if state:
-            await update_game(bot, league, season, session, game_id, state)
+            print(f'Checking {league} {season}.{session}.{game_id}')
+            try:
+                await update_game(bot, league, season, session, game_id, state)
+            except Exception as e:
+                robo_ump.log_msg(f'<@330153321262219284> Ran into an issue with {league} {season}.{season}.{game_id}')
+                robo_ump.set_state(league, season, session, game_id, 'PAUSED')
+                print(e)
     return
 
 

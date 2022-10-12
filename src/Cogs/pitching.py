@@ -41,8 +41,13 @@ class Pitching(commands.Cog):
         league, season, session, game_id = game
         state = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
         if state[0] == 'WAITING FOR PITCHER CONFIRMATION':
+            swing_submitted, = db.fetch_one('SELECT swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+            if swing_submitted:
+                robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+            else:
+                robo_ump.set_state(league, season, session, game_id, 'WAITING FOR SWING')
             await ctx.message.add_reaction('👍')
-            robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
+
 
     @commands.command(brief='Submit or change a pitch',
                       description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).',

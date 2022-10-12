@@ -359,7 +359,9 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
 
             db.update_database('''UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (convert_to_unix_time(pitch_request_msg.created_at), league, season, session, game_id))
     else:
-        print('Im not supporting reddit only pitchers')
+        get_player_name(player_id)
+        log_msg(f'{league} {season}.{session}.{game_id} Current pitcher does not have discord linked: **Player:** {get_player_name(player_id)} **ID:** {player_id}')
+        set_state(league, season, session, game_id, 'PAUSED')
     return
 
 
@@ -425,7 +427,7 @@ def get_swing_from_reddit(reddit_comment_url):
             event_check = check_for_event(sheet_id, swing_comment)
             if event_check:
                 # make sure the person swinging is actually up to bat
-                comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s', (f'/u/{swing_comment.author.lower}',))
+                comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s', (f'/u/{swing_comment.author}',))
                 current_batter, = db.fetch_one('SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
                 if comment_author_id == current_batter or 'STEAL' in swing_comment.body.upper():
                     # Write swing src, swing submitted to database
@@ -466,7 +468,7 @@ async def get_swing_from_reddit_async(reddit_comment_url):
             if event_check:
                 # make sure the person swinging is actually up to bat
                 comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s',
-                                                  (f'/u/{swing_comment.author.lower}',))
+                                                  (f'/u/{swing_comment.author}',))
                 current_batter, = db.fetch_one(
                     'SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s',
                     (league, season, session, game_id))
@@ -532,7 +534,7 @@ def check_for_event(sheet_id, swing_comment):
 
 
 def log_msg(message: str):
-    hook = Webhook(read_config(config_ini, 'Channels', 'error_log_webhook'))
+    hook = Webhook(read_config(config_ini, 'Channels', 'game_log_webhook'))
     hook.send(f'<t:{int(datetime.datetime.now().timestamp())}:T> - {message}')
     return
 
@@ -590,11 +592,11 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
             pitch_requested, pitch_submitted, swing_requested, swing_submitted
             )
     if result_in_db:
-        sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID =%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B =%s, prAB =%s, pitch_requested =%s, pitch_submitted=%s, swing_reqested =%s, swing_submitted=%s WHERE paID=%s'''
+        sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID =%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B =%s, prAB =%s, pitch_requested =%s, pitch_submitted=%s, swing_requested =%s, swing_submitted=%s WHERE paID=%s'''
         data = data + (pa_id,)
     else:
         sql = '''INSERT INTO PALogs 
-        (paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB, pitch_requested, pitch_submitted, swing_reqested, swing_submitted)
+        (paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB, pitch_requested, pitch_submitted, swing_requested, swing_submitted)
          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
     db.update_database(sql, data)
     return
@@ -817,6 +819,7 @@ async def result(bot, league, season, session, game_id):
             batter_team = home_team
             pitcher_team = away_team
 
+        log_msg(f'Logging result for {league} {season}.{session}.{game_id}')
         log_result(sheet_id, league, season, session, game_id, inning, outs, obc, away_score, home_score,
                    pitcher_team, pitcher_name, current_pitcher_id, batter_name, batter_team, current_batter_id,
                    pitch_number, swing_number, diff, result_type, rbi, run,
@@ -863,6 +866,7 @@ async def result(bot, league, season, session, game_id):
 async def update_matchup(league, season, session, game_id):
     sheet_id, = db.fetch_one('SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
     next_matchup = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])[0]
+    log_msg(f'{league} {season}.{session}.{game_id} - updating matchup: {next_matchup}')
     sql = '''UPDATE pitchData SET current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
     db.update_database(sql, (next_matchup[0], next_matchup[3], league, season, session, game_id))
     return next_matchup[0], next_matchup[3]
@@ -1204,7 +1208,8 @@ def get_valid_steal_types(steal_type):
 
 async def ask_for_pitch_change(bot, current_pitcher_id, league, season, session, game_id):
     current_pitcher_discord, keep_pitch = db.fetch_one('SELECT discordID, keep_pitch FROM playerData WHERE playerID=%s', (current_pitcher_id,))
-    if keep_pitch:
+    swing_submitted, = db.fetch_one('SELECT swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+    if keep_pitch and swing_submitted:
         set_state(league, season, session, game_id, 'WAITING FOR RESULT')
     else:
         sheet_id = get_sheet(league, season, session, game_id)
@@ -1213,7 +1218,7 @@ async def ask_for_pitch_change(bot, current_pitcher_id, league, season, session,
         current_pitcher = bot.get_user(int(current_pitcher_discord))
         dm_channel = await current_pitcher.create_dm()
         prompt = f'{ab_text}\nA sub has been requested for the current at bat. To keep your pitch, use `.keep_pitch`. To change your pitch use `.pitch ###`.'
-        if keep_pitch:
+        if keep_pitch and swing_submitted:
             set_state(league, season, session, game_id, 'WAITING FOR RESULT')
         else:
             await dm_channel.send(prompt)
