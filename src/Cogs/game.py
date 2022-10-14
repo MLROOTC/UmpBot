@@ -36,30 +36,34 @@ class Game(commands.Cog):
     @commands.command(brief='Set up a conditional sub for the current pitcher',
                       description='Logs the time the conditional pitch was requested, prompts the pitcher for a conditional pitch, waits for a response, and then logs the conditional pitch and time responded to in the database. If the original pitcher submits a pitch, the bot will automatically request that an umpire verify that the conditions of the sub have not been met before proceeding with the current ab-bat.',
                       aliases=['conditionalpitch'])
-    async def conditional_pitch(self, ctx, team: str, batter: discord.Member, *, notes: str = None):
+    async def conditional_pitch(self, ctx, team: str, pitcher: discord.Member, *, notes: str = None):
         if robo_ump.player_is_allowed(ctx.author.id, team):
             if not notes:
                 notes = '-'
             season, session = robo_ump.get_current_session(team)
             game = robo_ump.fetch_game_team(team, season, session)
             league, season, session, game_id = game
-            conditional_pitcher = robo_ump.get_player_from_discord(batter.id)
-            conditional_pitch_requested = robo_ump.convert_to_unix_time(ctx.message.created_at)
-            data = (conditional_pitcher, conditional_pitch_requested, notes, league, season, session, game_id)
-            sql = '''UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            db.update_database(sql, data)
-            await batter.send(
-                f'{ctx.author.mention} has requested a conditional pitch for {team.upper()}. Please reply with a pitch number to be used at the following condition: {notes}')
+            conditional_pitcher = robo_ump.get_player_from_discord(pitcher.id)
+            if conditional_pitcher:
+                conditional_pitch_requested = robo_ump.convert_to_unix_time(ctx.message.created_at)
+                data = (conditional_pitcher, conditional_pitch_requested, notes, league, season, session, game_id)
+                sql = '''UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                db.update_database(sql, data)
+                await pitcher.send(f'{ctx.author.mention} has requested a conditional pitch for {team.upper()}. Please reply with a pitch number to be used at the following condition: {notes}')
+                robo_ump.log_msg(f'Conditional pitch requested for {league} {season}.{session}.{game_id} - {pitcher}({conditional_pitcher})')
 
-            def wait_for_response(msg):
-                return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
+                def wait_for_response(msg):
+                    return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
 
-            await ctx.send('Conditional pitch request sent to pitcher.')
-            conditional_pitch = await self.bot.wait_for('message', check=wait_for_response)
-            sql = '''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            db.update_database(sql, (conditional_pitch.id,) + game)
-            await conditional_pitch.add_reaction('👍')
-            await ctx.send('Conditional pitch submitted.')
+                await ctx.send('Conditional pitch request sent to pitcher.')
+                conditional_pitch = await self.bot.wait_for('message', check=wait_for_response)
+                sql = '''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                db.update_database(sql, (conditional_pitch.id,) + game)
+                robo_ump.log_msg(f'Conditional pitch submitted for {league} {season}.{session}.{game_id}')
+                await conditional_pitch.add_reaction('👍')
+                await ctx.send('Conditional pitch submitted.')
+            else:
+                await ctx.send(f'Could not find a player account linked to {pitcher}')
 
     @commands.command(brief='Set up a conditional sub for the current batter',
                       description='Logs the time the conditional swing was requested, prompts the conditional batter for a swing, waits for a response, and then logs the conditional swing and time they responded to in the database. If the original batter submits a swing, the bot will automatically request that an umpire verify that the conditions of the sub have not been met before proceeding with the current ab-bat.',
@@ -71,22 +75,30 @@ class Game(commands.Cog):
             await ctx.message.add_reaction('👍')
             season, session = robo_ump.get_current_session(team)
             game = robo_ump.fetch_game_team(team, season, session)
+            league, season, session, game_id = game
+            season, session = robo_ump.get_current_session(team)
+            game = robo_ump.fetch_game_team(team, season, session)
             conditional_batter = robo_ump.get_player_from_discord(batter.id)
-            conditional_swing_requested = robo_ump.convert_to_unix_time(ctx.message.created_at)
-            data = (conditional_batter, conditional_swing_requested, notes) + game
-            sql = '''UPDATE pitchData SET conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            db.update_database(sql, data)
-            await batter.send(f'{ctx.author.mention} has requested a conditional swing for {team.upper()}. Please reply with a swing number to be used at the following condition: {notes}')
+            if conditional_batter:
+                conditional_swing_requested = robo_ump.convert_to_unix_time(ctx.message.created_at)
+                data = (conditional_batter, conditional_swing_requested, notes) + game
+                sql = '''UPDATE pitchData SET conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_notes=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                db.update_database(sql, data)
+                await batter.send(f'{ctx.author.mention} has requested a conditional swing for {team.upper()}. Please reply with a swing number to be used at the following condition: {notes}')
+                robo_ump.log_msg(f'Conditional swing requested for {league} {season}.{session}.{game_id} - {batter}({conditional_batter})')
 
-            def wait_for_response(msg):
-                return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
+                def wait_for_response(msg):
+                    return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
 
-            await ctx.send('Conditional swing request sent to batter.')
-            conditional_swing = await self.bot.wait_for('message', check=wait_for_response)
-            sql = '''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-            db.update_database(sql, (conditional_swing.id,) + game)
-            await conditional_swing.add_reaction('👍')
-            await ctx.send('Conditional swing submitted.')
+                await ctx.send('Conditional swing request sent to batter.')
+                conditional_swing = await self.bot.wait_for('message', check=wait_for_response)
+                sql = '''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                db.update_database(sql, (conditional_swing.id,) + game)
+                robo_ump.log_msg(f'Conditional swing submitted for {league} {season}.{session}.{game_id}')
+                await conditional_swing.add_reaction('👍')
+                await ctx.send('Conditional swing submitted.')
+            else:
+                await ctx.send(f'Could not find a player account linked to {batter}')
 
     @commands.command(brief='Swing via Discord DM',
                       description='Submit a swing to the bot via Discord DM',
@@ -264,7 +276,7 @@ class Game(commands.Cog):
                 description = f'{awayTeam: <4} {awayScore: <2}     ○     T1\n'
                 description += f'{homeTeam: <4} {homeScore: <2}   ○   ○   {outs} Out'
                 embed = discord.Embed(title=title, description=f'```{description}```', color=color, url=threadURL)
-            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCHER CONFIRMATION', 'WAITING FOR UMP CONFIRMATION']:
+            elif state in ['WAITING FOR PITCH', 'WAITING FOR SWING', 'WAITING FOR RESULT', 'SUB REQUESTED', 'AUTO REQUESTED', 'WAITING FOR PITCHER CONFIRMATION', 'WAITING FOR UMP CONFIRMATION', 'PAUSED']:
                 matchup_names = sheets.read_sheet(sheet_id, assets.calc_cell2['current_matchup'])
                 matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
                 scoring_plays = sheets.read_sheet(sheet_id, assets.calc_cell2['scoring_plays'])
@@ -449,10 +461,12 @@ class Game(commands.Cog):
     @commands.command(brief='Intentionally walk a batter',
                       description='Intentionally walk a batter')
     async def ibb(self, ctx, team: str):
-        if robo_ump.player_is_allowed(ctx.author.id, team):
-            season, session = robo_ump.get_current_session(team)
-            league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-            sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        current_pitcher, pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT current_pitcher, pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+        player_id = robo_ump.get_player_from_discord(ctx.author.id)
+        if robo_ump.player_is_allowed(ctx.author.id, team) or (ctx.guild is None and player_id == current_pitcher):
             event = robo_ump.set_event(sheet_id, 'IBB')
             robo_ump.set_state(league, season, session, game_id, 'WAITING FOR RESULT')
             await ctx.send(f'Event set to {event}')
@@ -462,11 +476,12 @@ class Game(commands.Cog):
                       description='Set the infield in for the current at bat. Re-posts the at bat ping if one has already been posted.',
                       aliases=['ifin', 'infieldin', 'if_in'])
     async def infield_in(self, ctx, team: str):
-        if robo_ump.player_is_allowed(ctx.author.id, team):
-            season, session = robo_ump.get_current_session(team)
-            league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-            sheet_id = robo_ump.get_sheet(league, season, session, game_id)
-            pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        current_pitcher, pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT current_pitcher, pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+        player_id = robo_ump.get_player_from_discord(ctx.author.id)
+        if robo_ump.player_is_allowed(ctx.author.id, team) or (ctx.guild is None and player_id == current_pitcher):
             if not swing_submitted:
                 robo_ump.log_msg(f'{ctx.author.name} set Infield In for {league} {season}.{session}.{game_id}')
                 event = robo_ump.set_event(sheet_id, 'Infield In')

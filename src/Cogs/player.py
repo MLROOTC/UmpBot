@@ -141,6 +141,11 @@ class Player(commands.Cog):
         elif user_react.emoji == '❌':
             return
 
+    @commands.command(brief='Link to Ump Bot Help Document',
+                      description='Link to Ump Bot Help Document')
+    async def doc(self, ctx):
+        await ctx.send(self.config_ini['URLs']['help'])
+
     @commands.command(brief='FCB Pitching Stats',
                       description='Displays pitching stats for MiLR')
     async def fpstats(self, ctx, *, playername=None):
@@ -920,12 +925,12 @@ def team_embed(team_abbr):
 
 
 def scoreboard(league, season, session):
-    sql = '''SELECT awayTeam, awayScore, homeTeam, homeScore, inning, outs, obc, complete FROM gameData WHERE league=%s AND season=%s AND session=%s ORDER BY awayTeam'''
+    sql = '''SELECT awayTeam, awayScore, homeTeam, homeScore, inning, outs, obc, complete, state FROM gameData WHERE league=%s AND season=%s AND session=%s ORDER BY awayTeam'''
     games = db.fetch_data(sql, (league, season, session))
     if games:
         scoreboard_txt = ''
         for game in games:
-            away_team, away_score, home_team, home_score, inning, outs, obc, complete = game
+            away_team, away_score, home_team, home_score, inning, outs, obc, complete, state = game
             if away_team is None:
                 continue
             b1 = '○'
@@ -947,6 +952,7 @@ def scoreboard(league, season, session):
             else:
                 scoreboard_txt += '```%3s %2s     %s       %s\n' % (away_team, away_score, b2, inning)
                 scoreboard_txt += '%3s %2s   %s   %s   %s out\r\n\r\n```' % (home_team, home_score, b3, b1, outs)
+                scoreboard_txt += f'{state}\r\n'
             scoreboard_txt += ''
         scoreboard_txt += ''
         if scoreboard_txt:

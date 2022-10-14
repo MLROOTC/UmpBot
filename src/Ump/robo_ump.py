@@ -494,7 +494,19 @@ async def get_swing_from_reddit_async(reddit_comment_url):
 
 def check_for_event(sheet_id, swing_comment):
     obc_before = sheets.read_sheet(sheet_id, assets.calc_cell2['obc_before'])[0][0]
-    if 'STEAL 2B' in swing_comment.body.upper():
+    if 'MULTISTEAL 3B' in swing_comment.body.upper():
+        if int(obc_before) in get_valid_steal_types('MULTISTEAL 3B'):
+            set_event(sheet_id, 'MSTEAL 3B')
+            return True
+        else:
+            return False
+    elif 'MULTISTEAL HOME' in swing_comment.body.upper():
+        if int(obc_before) in get_valid_steal_types('MSTEAL HOME'):
+            set_event(sheet_id, 'MULTISTEAL HOME')
+            return True
+        else:
+            return False
+    elif 'STEAL 2B' in swing_comment.body.upper():
         if int(obc_before) in get_valid_steal_types('STEAL 2B'):
             set_event(sheet_id, 'STEAL 2B')
             return True
@@ -509,18 +521,6 @@ def check_for_event(sheet_id, swing_comment):
     elif 'STEAL HOME' in swing_comment.body.upper():
         if int(obc_before) in get_valid_steal_types('STEAL HOME'):
             set_event(sheet_id, 'STEAL HOME')
-            return True
-        else:
-            return False
-    elif 'MULTISTEAL 3B' in swing_comment.body.upper():
-        if int(obc_before) in get_valid_steal_types('MULTISTEAL 3B'):
-            set_event(sheet_id, 'MSTEAL 3B')
-            return True
-        else:
-            return False
-    elif 'MULTISTEAL HOME' in swing_comment.body.upper():
-        if int(obc_before) in get_valid_steal_types('MSTEAL HOME'):
-            set_event(sheet_id, 'MULTISTEAL HOME')
             return True
         else:
             return False
@@ -702,7 +702,7 @@ async def result(bot, league, season, session, game_id):
         color, logo_url = db.fetch_one(sql, (home_team,))
 
     # Have someone check if the conditional sub should be used instead
-    if conditional_swing_requested:
+    if conditional_swing_src:
         conditional_batter_name, conditional_batter_discord = db.fetch_one('SELECT playerName, discordID FROM playerData WHERE playerID=%s', (conditional_batter,))
         conditional_batter_discord = bot.get_user(int(conditional_batter_discord))
         conditional_batter_dm_channel = await conditional_batter_discord.create_dm()
@@ -818,7 +818,7 @@ async def result(bot, league, season, session, game_id):
         else:
             batter_team = home_team
             pitcher_team = away_team
-
+        log_msg(f'{league} {season}.{session}.{game_id} {event} Pitch: {pitch_number} Swing: {swing_number} Diff: {diff} -> {result_type} RBI: {rbi} Run: {run}')
         log_msg(f'Logging result for {league} {season}.{session}.{game_id}')
         log_result(sheet_id, league, season, session, game_id, inning, outs, obc, away_score, home_score,
                    pitcher_team, pitcher_name, current_pitcher_id, batter_name, batter_team, current_batter_id,
