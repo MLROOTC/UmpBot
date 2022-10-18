@@ -1190,13 +1190,10 @@ def umpdate_buttons(bot, sheet_id, embed, league, season, session, game_id, team
             if field.value == 'P':
                 sql = 'SELECT awayTeam, homeTeam FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
                 away_team, home_team = db.fetch_one(sql, (league, season, session, game_id))
-                if team == away_team:
-                    home = 'away'
-                elif team == home_team:
-                    home = 'home'
-                else:
-                    print('wtf')
-                db.update_database(f'UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
+                if team.upper() == away_team.upper():
+                    db.update_database(f'UPDATE pitchData SET list_away=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
+                elif team.upper() == home_team.upper():
+                    db.update_database(f'UPDATE pitchData SET list_home=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
         if ask_pitcher:
             db.update_database('UPDATE pitchData SET swing_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
             await ask_for_pitch_change(bot, current_pitcher_id, league, season, session, game_id)
