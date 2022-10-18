@@ -868,7 +868,7 @@ async def result(bot, league, season, session, game_id):
         # Send hype pings
         if rbi != '0' or str(diff) == '500' or result_type == 'TP':
             channel = bot.get_channel(int(read_config(league_config, league.upper(), 'game_discussion')))
-            if rbi != '0':
+            if rbi != '0' and rbi.isnumeric():
                 await channel.send(content=f'<@&{batter_team_data[1]}>', embed=result_embed)
             elif str(diff) == '500' or result_type == 'TP':
                 await channel.send(content=f'<@&{pitcher_team_data[1]}>', embed=result_embed)
