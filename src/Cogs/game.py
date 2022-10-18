@@ -461,7 +461,8 @@ class Game(commands.Cog):
             await ctx.send(f'**Select steal type**', view=view)
 
     @commands.command(brief='Intentionally walk a batter',
-                      description='Intentionally walk a batter')
+                      description='Intentionally walk a batter',
+                      aliases=['hbp'])
     async def ibb(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
