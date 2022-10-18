@@ -513,7 +513,10 @@ class Game(commands.Cog):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
-            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            thread_url, sheet_id, state = db.fetch_one('SELECT threadURL, sheetID, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            if state.upper() not in ['WAITING FOR PITCH']:
+                await ctx.send(f'Game is currently {state.lower()}. Please wait.')
+                return
             sql = '''SELECT current_pitcher, pitch_requested, pitch_submitted, pitch_src, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             current_pitcher, pitch_requested, pitch_submitted, pitch_src, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one(sql, game)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
@@ -561,7 +564,10 @@ class Game(commands.Cog):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
-            thread_url, sheet_id = db.fetch_one('SELECT threadURL, sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            thread_url, sheet_id, state = db.fetch_one('SELECT threadURL, sheetID, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            if state.upper() not in ['WAITING FOR SWING']:
+                await ctx.send(f'Game is currently {state.lower()}. Please wait.')
+                return
             sql = '''SELECT swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
             swing_requested, swing_submitted, conditional_batter, conditional_swing_requested, conditional_swing_src, conditional_swing_notes = db.fetch_one(sql, game)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
@@ -600,6 +606,9 @@ class Game(commands.Cog):
             game = robo_ump.fetch_game_team(team, season, session)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
             thread_url, sheet_id, home_team, away_team, state = db.fetch_one('SELECT threadURL, sheetID, homeTeam, awayTeam, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            if state.upper() in ['WAITING FOR UMP CONFIRMATION', 'WAITING FOR PITCHER CONFIRMATION']:
+                await ctx.send(f'Game is currently {state.lower()}. Please wait until the current request is resolved before making any further requests.')
+                return
             if team.upper() == home_team:
                 sub_list = sheets.read_sheet(sheet_id, assets.calc_cell2['home_sub_list'])
             elif team.upper() == away_team:
@@ -675,6 +684,9 @@ class Game(commands.Cog):
             game = robo_ump.fetch_game_team(team, season, session)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
             thread_url, sheet_id, home_team, away_team, state = db.fetch_one('SELECT threadURL, sheetID, homeTeam, awayTeam, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
+            if state.upper() in ['WAITING FOR UMP CONFIRMATION', 'WAITING FOR PITCHER CONFIRMATION']:
+                await ctx.send(f'Game is currently {state.lower()}. Please wait until the current request is resolved before making any further requests.')
+                return
             if team.upper() == home_team:
                 sub_list = sheets.read_sheet(sheet_id, assets.calc_cell2['home_sub_list'])
             elif team.upper() == away_team:
