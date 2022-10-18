@@ -129,6 +129,41 @@ async def fetch_game(ctx, bot):
         return None
 
 
+async def fetch_game_current_pitcher(ctx, bot):
+    pitcher_id = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
+    if pitcher_id:
+        active_games = db.fetch_data('''SELECT league, season, session, game_id FROM pitchData WHERE current_pitcher=%s''', (pitcher_id[0],))
+        if not active_games:
+            await ctx.send("I couldn't find any active games you are pitching in.")
+            return None
+        if len(active_games) == 1:
+            if active_games[0][4] == pitcher_id[0]:
+                return active_games[0]
+            elif active_games[0][5] == pitcher_id[0]:
+                return active_games[0]
+            else:
+                await ctx.send('Are you even pitching right now??')
+        else:
+            # TODO
+            prompt = f'**Multiple games found. Please select a game:** \n```'
+            for i in range(len(active_games)):
+                game = active_games[i]
+                game_data = db.fetch_one('''SELECT awayTeam, homeTeam, inning, outs FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', game[0:4])
+                prompt += f'{i + 1}. {game[0]:4} {game[1]}.{game[2]} - {game_data[0]} @ {game_data[1]} | {game_data[2]} {game_data[3]} Out(s)\n'
+            prompt += '```'
+            await ctx.send(prompt)
+
+            def wait_for_response(msg):
+                return msg.content.isnumeric() and 0 < int(msg.content) <= len(active_games)
+
+            game_number = await bot.wait_for('message', check=wait_for_response)
+            return active_games[int(game_number.content) - 1]
+    else:
+        await ctx.send(
+            "I couldn't find a player linked to your Discord account. Please use `.claim <playername>` to link your account.")
+        return None
+
+
 async def fetch_game_conditional_pitch(ctx, bot):
     pitcher_id, = db.fetch_one('''SELECT playerID FROM playerData WHERE discordID=%s''', (ctx.author.id,))
     if pitcher_id:
@@ -291,7 +326,6 @@ def lineup_check(sheet_id):
 def get_current_lineup(league, season, session, game_id, home):
     sql = '''SELECT player_id, position, batting_order, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND home=%s ORDER BY batting_order'''
     lineup = db.fetch_data(sql, (league, season, session, game_id, home))
-    print(lineup)
     lineup_string = ''
     for line in lineup:
         player_id, position, order, starting = line
@@ -459,19 +493,13 @@ async def get_swing_from_reddit_async(reddit_comment_url):
             swing = 1000
         if 0 < swing <= 1000:
             parent_thread = await reddit.get_thread_async(swing_comment.submission)
-            league, season, session, game_id, sheet_id, state = db.fetch_one(
-                'SELECT league, season, session, gameID, sheetID, state FROM gameData WHERE threadURL=%s',
-                (parent_thread.url,))
-
+            league, season, session, game_id, sheet_id, state = db.fetch_one('SELECT league, season, session, gameID, sheetID, state FROM gameData WHERE threadURL=%s', (parent_thread.url,))
             # Check for steal/bunt/etc
             event_check = check_for_event(sheet_id, swing_comment)
             if event_check:
                 # make sure the person swinging is actually up to bat
-                comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s',
-                                                  (f'/u/{swing_comment.author}',))
-                current_batter, = db.fetch_one(
-                    'SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s',
-                    (league, season, session, game_id))
+                comment_author_id, = db.fetch_one('SELECT playerID FROM playerData WHERE redditName=%s', (f'/u/{str(swing_comment.author)}',))
+                current_batter, = db.fetch_one('SELECT current_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
                 if comment_author_id == current_batter or 'STEAL' in swing_comment.body.upper():
                     # Write swing src, swing submitted to database
                     swing_submitted = int(swing_comment.created_utc)
@@ -755,9 +783,10 @@ async def result(bot, league, season, session, game_id):
                 pitch_src = await dm_channel.fetch_message(int(pitch_src))
             except Exception as e:
                 set_state(league, season, session, game_id, 'PAUSED')
-                warning_msg = f"I can't find a pitch for {league.upper} {season}.{session}.{game_id} {away_team} @ {home_team}. Something has probably gone wrong with the bot. Please ask the current pitcher to provide a screenshot to confirm their pitch has not been deleted, and then reset the current at bat using .reset <TEAM>."
-                await edit_warning(bot, warning_msg, league, season, session, game_id)
+                warning_msg = f"I can't find a pitch for {league.upper()} {season}.{session}.{game_id} {away_team} @ {home_team}. Something has probably gone wrong with the bot. Please ask the current pitcher to provide a screenshot to confirm their pitch has not been deleted, and then reset the current at bat using .reset <TEAM>."
+                # await edit_warning(bot, warning_msg, league, season, session, game_id)
                 log_msg(e)
+                return None
             if pitch_src.edited_at:
                 warning_msg = f"**{current_pitcher.mention} has edited their pitch. Please investigate.**\n\nPitcher: {pitcher_name}\nPitcher ID: {current_pitcher_id}\nPitch Requested: <t:{pitch_requested}:T>\nPitch Submitted: <t:{pitch_submitted}:T>\nMessage ID: {pitch_src.id}"
                 await edit_warning(bot, warning_msg, league, season, session, game_id)
@@ -1139,7 +1168,7 @@ def auto_buttons(bot, embed, league, season, session, game_id):
     return view
 
 
-def umpdate_buttons(bot, sheet_id, embed, league, season, session, game_id):
+def umpdate_buttons(bot, sheet_id, embed, league, season, session, game_id, team):
     ump_sheet = Button(label="Ump Sheet", style=discord.ButtonStyle.link, url=f'https://docs.google.com/spreadsheets/d/{sheet_id}')
     submit = Button(label="Umpdate", style=discord.ButtonStyle.blurple)
     cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
@@ -1163,6 +1192,16 @@ def umpdate_buttons(bot, sheet_id, embed, league, season, session, game_id):
             if field.name == 'Clear Current Pitch':
                 db.update_database('UPDATE pitchData SET pitch_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
                 old_state = 'WAITING FOR PITCH'
+            if field.value == 'P':
+                sql = 'SELECT awayTeam, homeTeam FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
+                away_team, home_team = db.fetch_one(sql, (league, season, session, game_id))
+                if team == away_team:
+                    home = 'away'
+                elif team == home_team:
+                    home = 'home'
+                else:
+                    print('wtf')
+                db.update_database(f'UPDATE pitchData SET list_{home}=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
         if ask_pitcher:
             db.update_database('UPDATE pitchData SET swing_requested=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, league, season, session, game_id))
             await ask_for_pitch_change(bot, current_pitcher_id, league, season, session, game_id)

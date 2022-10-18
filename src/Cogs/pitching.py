@@ -48,7 +48,6 @@ class Pitching(commands.Cog):
                 robo_ump.set_state(league, season, session, game_id, 'WAITING FOR SWING')
             await ctx.message.add_reaction('👍')
 
-
     @commands.command(brief='Submit or change a pitch',
                       description='Submit a pitch for the current game. Or, if there is already a pitch on file, changes the pitch (if the swing is not already in).',
                       aliases=['p'])
@@ -57,7 +56,7 @@ class Pitching(commands.Cog):
         if not 0 < pitch <= 1000:
             await ctx.send('Not a valid pitch dum dum.')
             return
-        game, home = await robo_ump.fetch_game(ctx, self.bot)
+        game = await robo_ump.fetch_game_current_pitcher(ctx, self.bot)
         league, season, session, game_id = game
         dm_channel = await ctx.author.create_dm()
         robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:P')
