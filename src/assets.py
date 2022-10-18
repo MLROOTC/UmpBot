@@ -65,6 +65,7 @@ calc_cell = {
     'ump_list': 'Calculator!F24:F26',
     'wnd_standings': 'Standings!F12:I15'
 }
+
 calc_cell2 = {
     'after_swing': 'CalcBE!Q3:U3',
     'all_players': 'LineupBE!A2:A52',
@@ -207,6 +208,16 @@ valid_positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PH
 steal_types = ['STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MSTEAL 3B', 'MSTEAL HOME']
 
 event_types = ['Swing', 'Auto K', 'Auto BB', 'Bunt', 'Steal 2B', 'Steal 3B', 'Infield In', 'IBB']
+
+states = ['WAITING FOR LINEUPS',
+          'WAITING FOR PITCH',
+          'WAITING FOR SWING',
+          'WAITING FOR RESULT',
+          'PAUSED',
+          'WAITING FOR PITCHER CONFIRMATION',
+          'WAITING FOR UMP CONFIRMATION',
+          'FINALIZING',
+          'COMPLETE']
 
 obc_state = {
     0: 'Bases Empty',

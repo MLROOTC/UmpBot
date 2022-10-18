@@ -898,6 +898,9 @@ class Game(commands.Cog):
                       aliases=['setstate'])
     @commands.has_role(umpire_role)
     async def set_state(self, ctx, team: str, *, state: str):
+        if state.upper() not in assets.states:
+            await ctx.send(f'Invalid state. Valid states are: `{assets.states}`')
+            return
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         robo_ump.set_state(league, season, session, game_id, state.upper())
