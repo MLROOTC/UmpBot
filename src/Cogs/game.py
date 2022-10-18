@@ -758,7 +758,11 @@ class Game(commands.Cog):
     async def reset_ab(self, ctx, team: str):
         season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        before_swing = sheets.read_sheet(sheet_id, assets.calc_cell2['before_swing'])[0]
+        inning, outs, obc, home_score, away_score = before_swing
         db.update_database('UPDATE pitchData SET current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, None, league, season, session, game_id))
+        db.update_database('UPDATE gameData SET inning=%s, outs=%s, obc=%s, homeScore=%s, awayScore=%s WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (inning, outs, obc, home_score, away_score, league, season, session, game_id))
         robo_ump.log_msg(f'{ctx.author.name} reset the current at bat for {league.upper()} {season}.{session}.{game_id}')
         robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
         await ctx.send('The at bat has been reset.')
