@@ -59,6 +59,8 @@ class Pitching(commands.Cog):
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         league, season, session, game_id = game
+        dm_channel = await ctx.author.create_dm()
+        robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:P')
         pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes = db.fetch_one('SELECT pitch_src, swing_submitted, pitch_requested, conditional_pitcher, conditional_pitch_requested, conditional_pitch_src, conditional_pitch_notes FROM pitchData WHERE  league=%s AND season=%s AND session=%s AND game_id=%s', game)
         state, = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
         if not pitch_requested:
@@ -120,6 +122,9 @@ class Pitching(commands.Cog):
             await ctx.send('Not a valid pitch dum dum.')
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
+        league, season, session, game_id = game
+        dm_channel = await ctx.author.create_dm()
+        robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:L')
         sql = f'''SELECT list_{home}, pitch_requested, pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
         current_list, pitch_requested, pitch_src = db.fetch_one(sql, game)
         if pitch_requested and not pitch_src:
@@ -147,6 +152,8 @@ class Pitching(commands.Cog):
             return
         game, home = await robo_ump.fetch_game(ctx, self.bot)
         league, season, session, game_id = game
+        dm_channel = await ctx.author.create_dm()
+        robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:S')
         swing_src, = db.fetch_one('''SELECT swing_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (league, season, session, game_id))
         if not swing_src:
             db.update_database('''UPDATE pitchData SET steal_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', (ctx.message.id, league, season, session, game_id))

@@ -111,6 +111,8 @@ class Game(commands.Cog):
         game = await robo_ump.fetch_game_swing(ctx, self.bot)
         data = (ctx.message.id, robo_ump.convert_to_unix_time(ctx.message.created_at)) + game
         league, season, session, game_id = game
+        dm_channel = await ctx.author.create_dm()
+        robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:D')
         db.update_database('''UPDATE pitchData SET swing_src=%s, swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         state, = db.fetch_one('SELECT state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
         pitch_src, = db.fetch_one('SELECT pitch_src FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
@@ -633,7 +635,7 @@ class Game(commands.Cog):
 
             async def send_request(interaction):
                 await interaction.response.defer()
-                await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(self.bot, sheet_id, embed, league, season, session, game_id))
+                await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(self.bot, sheet_id, embed, league, season, session, game_id, team))
                 robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
                 await prompt.edit(content=None, view=None, embed=embed)
                 await interaction.followup.send('Request sent.')
@@ -722,7 +724,7 @@ class Game(commands.Cog):
                     embed.add_field(name='Requires Pitcher Confirmation', value=True)
                 if new_pitcher:
                     embed.add_field(name='Clear Current Pitch', value=True)
-                await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(self.bot, sheet_id, embed, league, season, session, game_id))
+                await self.ump_hq.send(embed=embed, view=robo_ump.umpdate_buttons(self.bot, sheet_id, embed, league, season, session, game_id, team))
                 robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
                 await prompt.edit(content='Request sent.', view=None, embed=embed)
 
@@ -901,6 +903,9 @@ class Game(commands.Cog):
             await ctx.send('Not a valid pitch dum dum.')
             return
         game = await robo_ump.fetch_game_conditional_pitch(ctx, self.bot)
+        league, season, session, game_id = game
+        dm_channel = await ctx.author.create_dm()
+        robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:SCP')
         data = (ctx.message.id,) + game
         db.update_database('''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         await ctx.message.add_reaction('👍')
@@ -913,6 +918,9 @@ class Game(commands.Cog):
             await ctx.send('Not a valid pitch dum dum.')
             return
         game = await robo_ump.fetch_game_conditional_swing(ctx, self.bot)
+        league, season, session, game_id = game
+        dm_channel = await ctx.author.create_dm()
+        robo_ump.log_msg(f'{league} {season}.{season}.{game_id} Player ID:{robo_ump.get_player_from_discord(ctx.author.id)}:DiscordID:{ctx.author.id}:ChannelID:{ctx.channel.id}:MessageID:{ctx.message.id}:DM Channel:{ctx.author.dm_channel.id}:DM Channel:{dm_channel.id}:SCS')
         data = (ctx.message.id, robo_ump.convert_to_unix_time(ctx.message.created_at)) + game
         db.update_database('''UPDATE pitchData SET conditional_swing_src=%s, conditional_swing_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s''', data)
         await ctx.message.add_reaction('👍')
