@@ -137,12 +137,7 @@ async def fetch_game_current_pitcher(ctx, bot):
             await ctx.send("I couldn't find any active games you are pitching in.")
             return None
         if len(active_games) == 1:
-            if active_games[0][4] == pitcher_id[0]:
-                return active_games[0]
-            elif active_games[0][5] == pitcher_id[0]:
-                return active_games[0]
-            else:
-                await ctx.send('Are you even pitching right now??')
+            return active_games[0]
         else:
             # TODO
             prompt = f'**Multiple games found. Please select a game:** \n```'
