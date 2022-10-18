@@ -37,6 +37,7 @@ def fetch_one(sql_query, data):
         cursor.execute(sql_query, data)
         data = cursor.fetchone()
         connection.commit()
+        cursor.reset()
         return data
     except mysql.connector.Error as e:
         print(e)
