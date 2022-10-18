@@ -609,7 +609,7 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
     sql = '''SELECT * FROM PALogs WHERE paID=%s'''
     result_in_db = db.fetch_one(sql, (pa_id,))
     data = (pa_id, league, season, session, game_id, inning, inning_id, play_number, outs, obc, away_score, home_score,
-            pitcher_team, pitcher_name, pitcher_id, batter_name, batter_team, batter_id,
+            pitcher_team, pitcher_name, pitcher_id, batter_team, batter_name, batter_id,
             pitch, swing, diff, exact_result, old_result, result_at_neutral, result_all_neutral,
             rbi, run, batter_wpa, pitcher_wpa, pr_3B, pr_2B, pr_1B, pr_AB,
             pitch_requested, pitch_submitted, swing_requested, swing_submitted
