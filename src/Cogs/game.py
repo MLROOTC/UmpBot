@@ -498,7 +498,7 @@ class Game(commands.Cog):
                       description='Allows GMs to pause the game from automatically resulting, prompting for a pitch, or posting an AB on reddit.',
                       aliases=['pause'])
     async def pause_game(self, ctx, team: str):
-        if robo_ump.player_is_allowed(ctx.author.id, team):
+        if robo_ump.player_is_allowed(ctx.author.id, team) or discord.utils.get(ctx.guild.roles, id=ump_warden_role) in ctx.author.roles:
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             robo_ump.log_msg(f'{ctx.author.name} paused game {league} {season}.{session}.{game_id}')
@@ -507,9 +507,9 @@ class Game(commands.Cog):
 
     @commands.command(brief='Request umps issue an Auto BB',
                       description='Sends a request to #umpires with the current game state to evaluate if an Auto BB should be applied, or to use a conditional sub, if applicable.',
-                      aliases=['auto_bb', 'autobb'])
+                      aliases=['auto_bb', 'autobb', 'use_conditional_pitch'])
     async def request_auto_bb(self, ctx, team: str):
-        if robo_ump.player_is_allowed(ctx.author.id, team):
+        if robo_ump.player_is_allowed(ctx.author.id, team) or discord.utils.get(ctx.guild.roles, id=umpire_role) in ctx.author.roles:
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
@@ -558,9 +558,9 @@ class Game(commands.Cog):
 
     @commands.command(brief='Request umps issue an Auto K',
                       description='Sends a request to #umpires with the current game state to evaluate if an Auto K should be applied, or to use a conditional sub, if applicable.',
-                      aliases=['auto_k', 'autok'])
+                      aliases=['auto_k', 'autok', 'use_conditional_swing'])
     async def request_auto_k(self, ctx, team: str):
-        if robo_ump.player_is_allowed(ctx.author.id, team):
+        if robo_ump.player_is_allowed(ctx.author.id, team) or discord.utils.get(ctx.guild.roles, id=umpire_role) in ctx.author.roles:
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
@@ -956,6 +956,7 @@ def standard_buttons(channel, embed, bot, league, season, session, game_id):
 
     async def send_request(interaction):
         await interaction.response.defer()
+        robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
         if 'Auto' in embed.title:
             await channel.send(embed=embed, view=robo_ump.auto_buttons(bot, embed, league, season, session, game_id))
         else:
