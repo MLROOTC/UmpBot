@@ -898,7 +898,6 @@ def team_embed(team_abbr):
         if gm or co_gm:
             embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
 
-
     if team[4]:
         embed.add_field(name='Result Webhook', value='Enabled', inline=True)
     else:

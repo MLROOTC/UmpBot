@@ -92,6 +92,7 @@ calc_cell2 = {
     'line_score': 'Box Score!A10:A13',
     'log_result': 'CalcBE!BK3:CB3',
     'matchup_info': 'CalcBE!V3:AB3',
+    'milr_check': 'Starting Lineups!G2',
     'next_up': 'Box Score!C5',
     'obc_before': 'CalcBE!D3',
     'swing': 'Calc!C10',

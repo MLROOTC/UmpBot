@@ -45,15 +45,15 @@ async def create_ump_sheets(bot, session: int):
             flavor_text = ''
             if len(game) == 4:
                 flavor_text = game[3]
-            season = int(read_config(league_config, league, 'season'))
-            game_check = db.fetch_one(
-                'SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND awayTeam=%s AND homeTeam=%s',
-                (league, season, session, away_team, home_team))
+            season = int(read_config(league_config, league.upper(), 'season'))
+            game_check = db.fetch_one('SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND awayTeam=%s AND homeTeam=%s', (league, season, session, away_team, home_team))
             if not game_check:
                 # Create Copy of Ump Sheet
                 file_id = read_config(league_config, league.upper(), 'sheet')
                 sheet_title = f'{league.upper()} {season}.{session} - {away_team} vs {home_team}'
                 sheet_id = sheets.copy_ump_sheet(file_id, sheet_title)
+                if league.upper() == 'MILR':
+                    sheets.update_sheet(sheet_id, assets.calc_cell2['milr_check'], 'TRUE')
                 sheets.update_sheet(sheet_id, assets.calc_cell2['away_team'], away_name)
                 sheets.update_sheet(sheet_id, assets.calc_cell2['home_team'], home_name)
                 log_msg(f'Created ump sheet {league.upper()} {season}.{session} - {away_team}@{home_team}: <https://docs.google.com/spreadsheets/d/{sheet_id}>')
@@ -71,12 +71,6 @@ async def create_ump_sheets(bot, session: int):
                 # Post Thread
                 thread = await post_thread(sheet_id, league, season, session, away_name, home_name, flavor_text)
                 db.update_database('''UPDATE gameData SET threadURL=%s WHERE sheetID=%s''', (thread.url, sheet_id))
-
-                # Ping in #game-discussion
-                hype_ping = f'<@&{away_role_id}> <@&{home_role_id}> your game thread has been created! {thread.url}'
-                channel = int(read_config(league_config, league.upper(), 'game_discussion'))
-                channel = bot.get_channel(channel)
-                await channel.send(hype_ping)
                 set_state(league, season, session, game_id, 'WAITING FOR LINEUPS')
     return
 
@@ -682,7 +676,7 @@ async def post_at_bat(bot, league, season, session, game_id):
             user = bot.get_user(current_batter[0])
             if user:
                 discord_ab_ping += f'\n{user.mention} is up to bat! No need to ping your umps when you swing, we have bots for that. <https://www.reddit.com{ab_ping.permalink}>'
-                ab_ping_channel = int(read_config(league_config, league, 'ab_pings'))
+                ab_ping_channel = int(read_config(league_config, league.upper(), 'ab_pings'))
                 channel = bot.get_channel(ab_ping_channel)
                 await channel.send(discord_ab_ping)
     return

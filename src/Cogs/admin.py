@@ -199,8 +199,11 @@ class Admin(commands.Cog):
         await ctx.message.add_reaction(loading_emote)
         # Update player appointments...
         mlr_backend = read_config(config_ini, 'URLs', 'backend_sheet_id')
+        milr_backend = read_config(config_ini, 'URLs', 'milr_backend_sheet_id')
         mlr_roster = read_config(league_config, 'Rosters', 'mlr_s8')
+        milr_roster = read_config(league_config, 'Rosters', 'milr_s8')
         mlr_appointments = sheets.read_sheet(mlr_backend, assets.calc_cell['mlr_appointments'])
+        milr_appointments = sheets.read_sheet(milr_backend, assets.calc_cell['mlr_appointments'])
 
         for team in mlr_appointments:
             cogm = ''
@@ -236,27 +239,23 @@ class Admin(commands.Cog):
             db.update_database(sql, team_data)
 
         # Update MiLR Appointments
-        # milr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['milr_appointments'])
-        # for team in milr_appointments:
-        #     gm = ''
-        #     cogm = ''
-        #     captain1 = ''
-        #     captain2 = ''
-        #     captain3 = ''
-        #     abb = team[0]
-        #     if len(team) >= 2:
-        #         gm = team[1]
-        #     if len(team) >= 3:
-        #         cogm = team[2]
-        #     if len(team) >= 6:
-        #         captain1 = team[5]
-        #     if len(team) >= 7:
-        #         captain2 = team[6]
-        #     if len(team) >= 8:
-        #         captain3 = team[7]
-        #     team_data = (gm, cogm, captain1, captain2, captain3, abb)
-        #     sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s WHERE abb=%s'''
-        #     db.update_database(sql, team_data)
+        for team in milr_appointments:
+            gm = ''
+            cogm = ''
+            captain1 = ''
+            captain2 = ''
+            abb = team[0]
+            if len(team) >= 2:
+                gm = team[1]
+            if len(team) >= 3:
+                 cogm = team[2]
+            if len(team) >= 4:
+                captain1 = team[3]
+            if len(team) >= 5:
+                captain2 = team[4]
+            team_data = (gm, cogm, captain1, captain2, abb)
+            sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s WHERE abb=%s'''
+            db.update_database(sql, team_data)
 
         # Update Discord Username In the Backend Sheet based on the Discord ID
         sheet_id = read_config(config_ini, 'URLs', 'backend_sheet_id')

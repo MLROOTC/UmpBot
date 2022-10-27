@@ -853,32 +853,39 @@ class Game(commands.Cog):
         if robo_ump.player_is_allowed(ctx.author.id, team):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
-            sql = 'SELECT sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
-            sheet_id, thread_url = db.fetch_one(sql, (league, season, session, game_id))
+            sql = 'SELECT sheetID, threadURL, awayTeam, homeTeam FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
+            sheet_id, thread_url, away_team, home_team = db.fetch_one(sql, (league, season, session, game_id))
 
             done = Button(label="Done", style=discord.ButtonStyle.green)
             cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
             async def done_lineup(interaction):
                 # TODO defer interaction
-                await interaction.response.edit_message(view=None)
+                await interaction.response.defer()
                 if robo_ump.lineup_check(sheet_id):
                     matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
                     # Write lineup to lineups table
                     await robo_ump.starting_lineup(league, season, session, game_id)
                     if matchup_info:
                         matchup_info = matchup_info[0]
+                        await interaction.message.edit(view=None)
                     else:
                         return None
                     starting_pitchers = sheets.read_sheet(sheet_id, assets.calc_cell2['starting_pitchers'])[0]
                     away_sp = robo_ump.get_player_id(starting_pitchers[0])
                     home_sp = robo_ump.get_player_id(starting_pitchers[3])
                     db.update_database('UPDATE pitchData SET home_pitcher=%s, away_pitcher=%s, current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (home_sp, away_sp, matchup_info[0], matchup_info[3], league, season, session, game_id))
-                    robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
                     await reddit.edit_thread(thread_url, robo_ump.get_box_score(sheet_id))
+                    away_role_id, = db.fetch_one('SELECT role_id FROM teamData WHERE abb=%s', (away_team,))
+                    home_role_id, = db.fetch_one('SELECT role_id FROM teamData WHERE abb=%s', (home_team,))
+                    hype_ping = f'<@&{away_role_id}> <@&{home_role_id}> your game thread has been created! {thread_url}'
+                    channel = int(robo_ump.read_config('league.ini', league.upper(), 'game_discussion'))
+                    channel = self.bot.get_channel(channel)
+                    await channel.send(hype_ping)
+                    robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
                 else:
                     await ctx.send('Still waiting for lineups.')
-                    await interaction.response.edit_message(view=None)
+                    await interaction.message.edit(view=None)
                 return
 
             async def cancel_request(interaction):
