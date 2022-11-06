@@ -34,6 +34,12 @@ class Admin(commands.Cog):
                                   ' Accepts the abbreviated team name and the URL as arguments.')
     @commands.has_role(ump_admin)
     async def add_webhook(self, ctx, team, *, url):
+        hook = Webhook(url)
+        try:
+            hook.send('Test')
+        except Exception as e:
+            await ctx.send('Invalid webhook provided.')
+            return
         sql = '''UPDATE teamData SET webhook_url = %s WHERE abb=%s'''
         db.update_database(sql, (url, team.upper()))
         db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = %s''', (team,))
