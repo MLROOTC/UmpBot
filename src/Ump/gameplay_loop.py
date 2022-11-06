@@ -1,6 +1,5 @@
 import src.db_controller as db
 import src.Ump.robo_ump as robo_ump
-import src.reddit_interface as reddit
 
 
 async def gameplay_loop(bot):
@@ -65,3 +64,20 @@ async def prompt_for_conditionals(bot, league, season, session, game_id):
         conditional_pitcher_discord = bot.get_user(int(conditional_pitcher_discord))
         await conditional_pitcher_discord.send(f"I've been rebooted! If you previously replied with a pitch I didn't catch it.  Please use `.submit_conditional_pitch ###` to submit your pitch.")
     return
+
+
+def audit_all_games():
+    mlr_season = robo_ump.read_config('league.ini', 'MLR', 'season')
+    mlr_session = robo_ump.read_config('league.ini', 'MLR', 'session')
+    milr_season = robo_ump.read_config('league.ini', 'MILR', 'season')
+    milr_session = robo_ump.read_config('league.ini', 'MILR', 'session')
+    mlr_games = db.fetch_data('SELECT sheetID, awayTeam FROM gameData WHERE season=%s AND session=%s AND complete=%s', (mlr_season, mlr_session, 0))
+    milr_games = db.fetch_data('SELECT sheetID, awayTeam FROM gameData WHERE season=%s AND session=%s AND complete=%s', (milr_season, milr_session, 0))
+    for game in mlr_games:
+        sheet_id, team = game
+        league, season, session, game_id = robo_ump.fetch_game_team(team, mlr_season, mlr_session)
+        robo_ump.audit_game_log(league, season, session, game_id, sheet_id)
+    for game in milr_games:
+        sheet_id, team = game
+        league, season, session, game_id = robo_ump.fetch_game_team(team, milr_season, milr_session)
+        robo_ump.audit_game_log(league, season, session, game_id, sheet_id)

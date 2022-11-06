@@ -366,6 +366,9 @@ class Player(commands.Cog):
         players = players.replace(' ;', ';')
         players = players.replace('; ', ';')
         players = players.split(';')
+        if len(players) == 1:
+            await ctx.send('Improper fomat. Please use `.ranges <battername>; <pitchername>` or use `.help ranges` for more options. ')
+            return
         result_types = ['HR', '3B', '2B', '1B', 'BB', 'FO', 'K', 'PO', 'RGO', 'LGO']
         batter = await get_player(ctx, players[0])
         pitcher = await get_player(ctx, players[1])

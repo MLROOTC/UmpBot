@@ -351,7 +351,13 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
             current_list = current_list.split()
             current_pitcher = bot.get_user(int(discord_id))
             dm_channel = await current_pitcher.create_dm()
-            pitch_src = await dm_channel.fetch_message(int(current_list[0]))
+            try:
+                pitch_src = await dm_channel.fetch_message(int(current_list[0]))
+            except Exception as e:
+                await dm_channel.send('Failed to get the last pitch from your list. If you were recently subbed in, this might be a result of a previous pitchers list being left in the database. Please use .clear to clear the list. Once that is done, let your GM know to alert umpires to unpause the game.')
+                log_msg(f'{league.upper()} {season}.{session}.{game_id} - failed to get pitch from list.')
+                set_state(league, season, session, game_id, 'PAUSED')
+                return
             if not pitch_src.edited_at:
                 sql = '''UPDATE pitchData SET pitch_src=%s, pitch_requested=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
                 db.update_database(sql, (pitch_src.id, datetime.datetime.now().timestamp(), datetime.datetime.now().timestamp(), league, season, session, game_id))
@@ -564,7 +570,6 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
     play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
     pa_id = get_pa_id(league, season, session, game_id, play_number[0])
 
-    # TODO finish log_result
     sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
     inning_id = db.fetch_data(sql, (league, season, session, game_id, inning))
 
@@ -587,7 +592,6 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
     result_at_neutral = result_log[2]
     result_all_neutral = result_log[3]
 
-    # TODO update when ump sheet is updated to have all of these
     batter_wpa = None
     pitcher_wpa = None
     pr_3B = None
@@ -616,7 +620,66 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
         (paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB, pitch_requested, pitch_submitted, swing_requested, swing_submitted)
          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
     db.update_database(sql, data)
+    log_msg(f'Result logged: {data}')
     return
+
+
+def audit_game_log(league, season, session, game_id, sheet_id):
+    plate_appearances = sheets.read_sheet(sheet_id, 'NewGL')
+    for row in plate_appearances:
+        if row:
+            if row[0] != '' and row[0] != 'IP Outs' and row[6] != '':
+                try:
+                    inning = row[1]
+                    outs = int(row[2])
+                    obc = int(row[3])
+                    home_score = int(row[4])
+                    away_score = int(row[5])
+                    hitter_name = row[6]
+                    swing = int(row[7])
+                    pitcher_name = row[8]
+                    pitch = int(row[9])
+                    diff = int(row[11])
+                    exact_result = row[12]
+                    rbi = int(row[13])
+                    run = int(row[14])
+                    hitter_id = int(row[21])
+                    pitcher_id = int(row[24])
+                    play_number = int(row[63])
+                    old_result = row[64]
+                    result_at_neutral = row[64]
+                    result_all_neutral = row[65]
+                    pa_id = get_pa_id(league, season, session, game_id, play_number)
+                    inning_id = db.fetch_one('SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning=%s', (league, season, session, game_id, inning))
+                    if inning_id:
+                        inning_id = inning_id[0]
+                    else:
+                        inning_id = read_config(league_config, league.upper(), 'inningid')
+                        inning_id = int(inning_id)
+                        write_config(league_config, league.upper(), 'inningid', str(inning_id + 1))
+
+                    away_team, home_team = db.fetch_one('SELECT awayTeam, homeTeam FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
+                    if 'T' in inning:
+                        pitcher_team = home_team
+                        hitter_team = away_team
+                    else:
+                        pitcher_team = away_team
+                        hitter_team = home_team
+                    sql = '''SELECT paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run FROM PALogs WHERE paID=%s'''
+                    data = (pa_id, league.upper(), season, session, game_id, inning, inning_id, play_number, outs, obc, away_score, home_score, pitcher_team, pitcher_name, pitcher_id, hitter_team, hitter_name, hitter_id, pitch, swing, diff, exact_result, old_result, result_at_neutral, result_all_neutral, rbi, run)
+                    pa_in_db = db.fetch_one(sql, (pa_id,))
+                    if not pa_in_db:
+                        log_msg(f'Adding `{data}` to PA Log...')
+                        sql = '''INSERT INTO PALogs (paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+                    elif pa_in_db != data:
+                        log_msg(f'Updating PA Log `{pa_in_db}` -> `{data}`')
+                        sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID =%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s WHERE  paID=%s'''
+                        data = data + (pa_id,)
+                    else:
+                        continue
+                    db.update_database(sql, data)
+                except ValueError as e:
+                    log_msg(f'Failed to audit: `{data}`')
 
 
 def remove_from_pa_log(pa_id):

@@ -24,6 +24,19 @@ class Game(commands.Cog):
         self.bot = bot
         self.ump_hq = self.bot.get_channel(int(config_ini['Channels']['ump_hq']))
 
+    @commands.command(brief='Update database with missing PA Logs',
+                      description='Update database with missing PA Logs',
+                      aliases=['audit'])
+    @commands.has_role(lom_role)
+    async def audit_games(self, ctx, season: int = None, session: int = None):
+        games = db.fetch_data('SELECT sheetID, awayTeam FROM gameData WHERE season=%s AND session=%s AND complete=%s', (season, session, 0))
+        for game in games:
+            sheet_id, team = game
+            league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+            await ctx.send(f'Auditing game log for {league.upper()} {season}.{session}.{game_id}...')
+            robo_ump.audit_game_log(league, season, session, game_id, sheet_id)
+        await ctx.send('Done.')
+
     @commands.command(brief='Checks a reddit comment to see if it contains a valid swing',
                       description='Checks a given reddit comment to see if it contains a valid swing. This is typically done automatically by a separate script, but sometimes reddit sux and we need a way to trigger it outside of the reddit_watcher script. ',
                       aliases=['checkswing', 'check'])
