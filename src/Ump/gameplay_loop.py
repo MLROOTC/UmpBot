@@ -11,7 +11,7 @@ async def gameplay_loop(bot):
                 await update_game(bot, league, season, session, game_id, state)
             except Exception as e:
                 away_team, home_team, sheet_id, thread_url = db.fetch_one('SELECT awayTeam, homeTeam, sheetID, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
-                robo_ump.log_msg(f'<@330153321262219284> Ran into an issue with {league} {season}.{season}.{game_id} - {away_team} vs {home_team}\n<{thread_url}>\n<https://docs.google.com/spreadsheets/d/{sheet_id}>')
+                robo_ump.log_msg(f'<@&856560071856095252> Ran into an issue with {league} {season}.{season}.{game_id} - {away_team} vs {home_team}\n<{thread_url}>\n<https://docs.google.com/spreadsheets/d/{sheet_id}>')
                 robo_ump.set_state(league, season, session, game_id, 'PAUSED')
                 print(e)
     return

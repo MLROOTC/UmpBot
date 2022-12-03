@@ -49,11 +49,11 @@ class Game(commands.Cog):
     @commands.command(brief='Set up a conditional sub for the current pitcher',
                       description='Logs the time the conditional pitch was requested, prompts the pitcher for a conditional pitch, waits for a response, and then logs the conditional pitch and time responded to in the database. If the original pitcher submits a pitch, the bot will automatically request that an umpire verify that the conditions of the sub have not been met before proceeding with the current ab-bat.',
                       aliases=['conditionalpitch'])
-    async def conditional_pitch(self, ctx, team: str, pitcher: discord.Member, *, notes: str = None):
+    async def conditional_pitch(self, ctx, team: str, pitcher: discord.Member, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team):
-            if not notes:
-                notes = '-'
-            season, session = robo_ump.get_current_session(team)
+            notes = '-'
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             game = robo_ump.fetch_game_team(team, season, session)
             league, season, session, game_id = game
             conditional_pitcher = robo_ump.get_player_from_discord(pitcher.id)
@@ -81,12 +81,12 @@ class Game(commands.Cog):
     @commands.command(brief='Set up a conditional sub for the current batter',
                       description='Logs the time the conditional swing was requested, prompts the conditional batter for a swing, waits for a response, and then logs the conditional swing and time they responded to in the database. If the original batter submits a swing, the bot will automatically request that an umpire verify that the conditions of the sub have not been met before proceeding with the current ab-bat.',
                       aliases=['conditionalswing'])
-    async def conditional_swing(self, ctx, team: str, batter: discord.Member, *, notes: str = None):
+    async def conditional_swing(self, ctx, team: str, batter: discord.Member, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team):
-            if not notes:
-                notes = '-'
+            notes = '-'
             await ctx.message.add_reaction('👍')
-            season, session = robo_ump.get_current_session(team)
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             game = robo_ump.fetch_game_team(team, season, session)
             league, season, session, game_id = game
             season, session = robo_ump.get_current_session(team)
@@ -137,8 +137,9 @@ class Game(commands.Cog):
     @commands.command(brief='Set awards and close out the game in the database',
                       description='Set awards, update the game thread, adudit the game log, clear out pitch data from the database, marks the game as complete, and sends an endgame ping in main.')
     @commands.has_role(umpire_role)
-    async def finalize(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def finalize(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         away_team, away_score, home_team, home_score, reddit_thread, = db.fetch_one('SELECT awayTeam, awayScore, homeTeam, homeScore, threadURL FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', (league, season, session, game_id))
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
@@ -266,8 +267,9 @@ class Game(commands.Cog):
                       description='Forces the bot to result an at-bat',
                       aliases=['force'])
     @commands.has_role(umpire_role)
-    async def force_result(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def force_result(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         await robo_ump.result(self.bot, league, season, session, game_id)
         await ctx.message.add_reaction('👍')
@@ -275,8 +277,9 @@ class Game(commands.Cog):
     @commands.command(brief='Get the current game state',
                       description='Get the current game state',
                       aliases=['state', 'gamestate', 'game'])
-    async def game_state(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def game_state(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         game = robo_ump.fetch_game_team(team, season, session)
         if game:
             sql = '''SELECT sheetID, awayTeam, homeTeam, awayScore, homeScore, inning, outs, obc, complete, threadURL, winningPitcher, losingPitcher, save, potg, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
@@ -476,8 +479,9 @@ class Game(commands.Cog):
     @commands.command(brief='Intentionally walk a batter',
                       description='Intentionally walk a batter',
                       aliases=['hbp'])
-    async def ibb(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def ibb(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
         current_pitcher, pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT current_pitcher, pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
@@ -491,8 +495,9 @@ class Game(commands.Cog):
     @commands.command(brief='Set the infield in for the current at bat',
                       description='Set the infield in for the current at bat. Re-posts the at bat ping if one has already been posted.',
                       aliases=['ifin', 'infieldin', 'if_in'])
-    async def infield_in(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def infield_in(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
         current_pitcher, pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT current_pitcher, pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
@@ -510,9 +515,10 @@ class Game(commands.Cog):
     @commands.command(brief='Pause the game from advancing',
                       description='Allows GMs to pause the game from automatically resulting, prompting for a pitch, or posting an AB on reddit.',
                       aliases=['pause'])
-    async def pause_game(self, ctx, team: str):
+    async def pause_game(self, ctx, team: str, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team) or discord.utils.get(ctx.guild.roles, id=ump_warden_role) in ctx.author.roles:
-            season, session = robo_ump.get_current_session(team)
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             robo_ump.log_msg(f'{ctx.author.name} paused game {league} {season}.{session}.{game_id}')
             robo_ump.set_state(league, season, session, game_id, 'PAUSED')
@@ -521,9 +527,10 @@ class Game(commands.Cog):
     @commands.command(brief='Request umps issue an Auto BB',
                       description='Sends a request to #umpires with the current game state to evaluate if an Auto BB should be applied, or to use a conditional sub, if applicable.',
                       aliases=['auto_bb', 'autobb', 'use_conditional_pitch'])
-    async def request_auto_bb(self, ctx, team: str):
+    async def request_auto_bb(self, ctx, team: str, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team) or discord.utils.get(ctx.guild.roles, id=umpire_role) in ctx.author.roles:
-            season, session = robo_ump.get_current_session(team)
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
             thread_url, sheet_id, state = db.fetch_one('SELECT threadURL, sheetID, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
@@ -572,9 +579,10 @@ class Game(commands.Cog):
     @commands.command(brief='Request umps issue an Auto K',
                       description='Sends a request to #umpires with the current game state to evaluate if an Auto K should be applied, or to use a conditional sub, if applicable.',
                       aliases=['auto_k', 'autok', 'use_conditional_swing'])
-    async def request_auto_k(self, ctx, team: str):
+    async def request_auto_k(self, ctx, team: str, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team) or discord.utils.get(ctx.guild.roles, id=umpire_role) in ctx.author.roles:
-            season, session = robo_ump.get_current_session(team)
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
             thread_url, sheet_id, state = db.fetch_one('SELECT threadURL, sheetID, state FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s', game)
@@ -612,9 +620,10 @@ class Game(commands.Cog):
     @commands.command(brief='Request a position change',
                       description='Sends a request to #umpires to update the Subs tab on the game sheet with the specified change. Multiple requests can be submitted using one command. There is no ability to undo, simply cancel and start over upon making a mistake.',
                       aliases=['position_change', 'pos_change', 'poschange', 'positionchange'])
-    async def request_position_change(self, ctx, team: str):
+    async def request_position_change(self, ctx, team: str, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team):
-            season, session = robo_ump.get_current_session(team)
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
@@ -690,9 +699,10 @@ class Game(commands.Cog):
     @commands.command(brief='Request a player substitution',
                       description='Sends a request to #umpires to update the Subs tab on the game sheet with the specified change. Multiple requests can be submitted using one command. There is no ability to undo, simply cancel and start over upon making a mistake.',
                       aliases=['requestsub', 'sub'])
-    async def request_sub(self, ctx, team: str):
+    async def request_sub(self, ctx, team: str, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team):
-            season, session = robo_ump.get_current_session(team)
+            if not season and not session:
+                season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
             game = robo_ump.fetch_game_team(team, season, session)
             logo_url, color = db.fetch_one('SELECT logo_url, color FROM teamData WHERE abb=%s', (team,))
@@ -780,8 +790,9 @@ class Game(commands.Cog):
                       description='Resets the current at bat from scratch. The pitcher will be prompted for a new pitch, the batters previous swing will be ignored, and any results are invalid.',
                       aliases=['reset'])
     @commands.has_role(umpire_role)
-    async def reset_ab(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def reset_ab(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
         before_swing = sheets.read_sheet(sheet_id, assets.calc_cell2['before_swing'])[0]
@@ -796,8 +807,9 @@ class Game(commands.Cog):
     @commands.command(brief='Roll back the last play',
                       description='Removes the previous play from the game log and the PALogs table in the database, and sets the game state back to the start of the previous at-bat.')
     @commands.has_role(umpire_role)
-    async def rollback(self, ctx, team: str):
-        season, session = robo_ump.get_current_session(team)
+    async def rollback(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         robo_ump.set_state(league, season, session, game_id, 'WAITING FOR UMP CONFIRMATION')
         sheet_id = robo_ump.get_sheet(league, season, session, game_id)
@@ -862,7 +874,7 @@ class Game(commands.Cog):
     @commands.command(brief='Set lineups to start the game',
                       description='GMs can input their lineup directly to the ump helper sheet. When both lineups have been submitted, the game automatically prompts the pitcher for their first pitch. ',
                       aliases=['set_lineups', 'setlineups', 'setlineup', 'lineup', 'lineups'])
-    async def set_lineup(self, ctx, team: str):
+    async def set_lineup(self, ctx, team: str, season: int = None, session: int = None):
         if robo_ump.player_is_allowed(ctx.author.id, team):
             season, session = robo_ump.get_current_session(team)
             league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
@@ -922,6 +934,18 @@ class Game(commands.Cog):
             await ctx.send(f'Invalid state. Valid states are: `{assets.states}`')
             return
         season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        robo_ump.set_state(league, season, session, game_id, state.upper())
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='Override game state',
+                      description='Manual override to update the state of a game.',
+                      aliases=['setstate2'])
+    @commands.has_role(umpire_role)
+    async def set_state2(self, ctx, team: str, season: int, session: int, state: str):
+        if state.upper() not in assets.states:
+            await ctx.send(f'Invalid state. Valid states are: `{assets.states}`')
+            return
         league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
         robo_ump.set_state(league, season, session, game_id, state.upper())
         await ctx.message.add_reaction('👍')
