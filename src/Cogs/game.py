@@ -66,7 +66,7 @@ class Game(commands.Cog):
                 robo_ump.log_msg(f'Conditional pitch requested for {league} {season}.{session}.{game_id} - {pitcher}({conditional_pitcher})')
 
                 def wait_for_response(msg):
-                    return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
+                    return msg.content.isnumeric() and 0 < int(msg.content) <= 1000 and msg.author == pitcher and msg.channel.guild is None
 
                 await ctx.send('Conditional pitch request sent to pitcher.')
                 conditional_pitch = await self.bot.wait_for('message', check=wait_for_response)
@@ -101,7 +101,7 @@ class Game(commands.Cog):
                 robo_ump.log_msg(f'Conditional swing requested for {league} {season}.{session}.{game_id} - {batter}({conditional_batter})')
 
                 def wait_for_response(msg):
-                    return msg.content.isnumeric() and 0 < int(msg.content) <= 1000
+                    return msg.content.isnumeric() and 0 < int(msg.content) <= 1000 and msg.author == batter and msg.channel.guild is None
 
                 await ctx.send('Conditional swing request sent to batter.')
                 conditional_swing = await self.bot.wait_for('message', check=wait_for_response)
