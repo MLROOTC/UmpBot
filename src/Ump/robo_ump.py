@@ -68,6 +68,12 @@ async def create_ump_sheets(bot, session: int):
                 data = (league, season, session, game_id)
                 db.update_database(sql, data)
 
+                # Append sheet ID to PA Log Data Gathering Sheet
+                backend_sheet = read_config(config_ini, 'URLs', 'backend_sheet_id')
+                page_name = assets.calc_cell2['game_sheet_input']
+                data = (str(datetime.datetime.now()), None, None, sheet_id, league, season, session, game_id, away_team, home_team)
+                sheets.append_sheet(backend_sheet, page_name, data)
+
                 # Post Thread
                 thread = await post_thread(sheet_id, league, season, session, away_name, home_name, flavor_text)
                 db.update_database('''UPDATE gameData SET threadURL=%s WHERE sheetID=%s''', (thread.url, sheet_id))

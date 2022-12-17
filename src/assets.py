@@ -84,6 +84,7 @@ calc_cell2 = {
     'event': 'Calc!G10',
     'game_complete': 'Calc!L21',
     'game_log': 'NewGL!G:BL',
+    'game_sheet_input': 'Game Sheet Input',
     'good_lineup': 'Starting Lineups!B18:E18',
     'home_lineup': 'Starting Lineups!E6:F16',
     'home_pitcher': 'Subs!J32',
