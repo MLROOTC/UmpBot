@@ -804,6 +804,18 @@ class Game(commands.Cog):
         await ctx.send('The at bat has been reset.')
         return
 
+    @commands.command(brief='Reset all conditional subs for the game',
+                      description='Resets all conditional subs for a game in case they get stuck for whatever reason',)
+    @commands.has_role(umpire_role)
+    async def reset_conditionals(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        db.update_database('UPDATE pitchData SET conditional_pitcher=%s, conditional_pitch_requested=%s, conditional_pitch_src=%s, conditional_pitch_notes = %s, conditional_batter=%s, conditional_swing_requested=%s, conditional_swing_src=%s, conditional_swing_notes = %s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (None, None, None, None, None, None, None, None, league, season, session, game_id))
+        robo_ump.log_msg(f'{ctx.author.name} reset all conditional subs for {league.upper()} {season}.{session}.{game_id}')
+        await ctx.send(f'All conditional subs for {league.upper()} {season}.{session}.{game_id} have been reset.')
+        return
+
     @commands.command(brief='Roll back the last play',
                       description='Removes the previous play from the game log and the PALogs table in the database, and sets the game state back to the start of the previous at-bat.')
     @commands.has_role(umpire_role)
