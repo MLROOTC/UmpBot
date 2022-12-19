@@ -1,80 +1,48 @@
 import configparser
 import time
-import src.db_controller as db
+import src.Ump.robo_ump as robo_ump
 import praw
-from dhooks import Webhook
 import re
+import traceback
+import sys
+from dhooks import Webhook
 
-base_url = 'https://www.reddit.com'
 config = configparser.ConfigParser()
 config.read('config.ini')
 client_id = config['Reddit']['client_id']
 client_secret = config['Reddit']['client_secret']
 user_agent = config['Reddit']['user_agent']
+username = config['Reddit']['username']
 root_comment_prefix = 't3_'
 child_comment_prefix = 't1_'
+debug_hook = Webhook(config['Channels']['error_log_webhook'])
 
 reddit = praw.Reddit(
     client_id=client_id,
     client_secret=client_secret,
     user_agent=user_agent
 )
-hook = Webhook(config['Channels']['swing_alerts_webhook'])
 subreddit_name = config['Reddit']['subreddit_name']
-
-
-def get_discord_ids(thread_url):
-    sql = '''SELECT discordID FROM umpData WHERE gameThread= %s'''
-    return db.fetch_data(sql, (thread_url,))
-
-
-def get_ump_list(thread_url):
-    sql = '''SELECT umpires FROM gameData WHERE threadURL=%s'''
-    return db.fetch_data(sql, (thread_url,))
 
 
 def check_swing():
     for comment in reddit.subreddit(subreddit_name).stream.comments(skip_existing=True):
         regexp = bool(re.search('([^\d]|^)\d{1,4}([^\d]|$)', comment.body))
-        author = 'u/%s' % comment.author
-        author = author.lower()
+        author = f'u/{comment.author}'
         if comment.parent_id[:3] == child_comment_prefix:
             parent_comment = reddit.comment(comment.parent_id[3:])
-            parent_comment_text = parent_comment.body
-            parent_comment_text = parent_comment_text.lower()
-            if ((author in parent_comment_text) or ('steal'.lower() in comment.body.lower())) and regexp:
-                swing_url = '%s%s' % (base_url, comment.permalink)
-                game_thread = reddit.submission(comment.submission)
-                break_flag = False
-                if 'steal' in comment.body.lower():
-                    umpires = get_ump_list('%s%s' % (base_url, game_thread.permalink))
-                    for umpire in umpires:
-                        ump_list = umpire[0].split()
-                        for ump in ump_list:
-                            sql = '''SELECT redditName FROM playerData WHERE playerID=%s'''
-                            umpire_reddit = db.fetch_data(sql, (ump,))
-                            if umpire_reddit:
-                                umpire_reddit = umpire_reddit[0][0][3:]
-                            if umpire_reddit == comment.author:
-                                break_flag = True
-                if not break_flag:
-                    swing_alert = '/u/%s has swung!' % comment.author
-                    game_thread_url = "%s%s" % (base_url, game_thread.permalink)
-                    umps = get_discord_ids(game_thread_url)
-                    if umps:
-                        for ump in umps:
-                            swing_alert += ' <@%s>' % ump[0]
-                    swing_alert += ' [link](<%s?context=1000>)' % swing_url
-                    if len(comment.body) <= 100:
-                        swing_alert += '```%s```' % comment.body
-                    hook.send(swing_alert)
+            if 'steal' in comment.body.lower() and comment.author != username and regexp:
+                robo_ump.get_swing_from_reddit(f'https://www.reddit.com{comment.permalink}')
+            elif author.lower() in parent_comment.body.lower() and regexp:
+                robo_ump.get_swing_from_reddit(f'https://www.reddit.com{comment.permalink}')
 
 
+debug_hook.send(f'reddit_watcher.py started with python {sys.version}')
 while True:
     try:
         check_swing()
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
         time.sleep(60)
-    else:
-        time.sleep(360)
+debug_hook.send('reddit_watcher.py stopped...')

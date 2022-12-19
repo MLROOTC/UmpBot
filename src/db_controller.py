@@ -20,10 +20,24 @@ def create_connection():
 
 def fetch_data(sql_query, data):
     try:
+        connection = create_connection()
         cursor = get_cursor(connection)
         cursor.execute(sql_query, data)
         data = cursor.fetchall()
         connection.commit()
+        return data
+    except mysql.connector.Error as e:
+        print(e)
+
+
+def fetch_one(sql_query, data):
+    try:
+        connection = create_connection()
+        cursor = get_cursor(connection)
+        cursor.execute(sql_query, data)
+        data = cursor.fetchone()
+        connection.commit()
+        cursor.reset()
         return data
     except mysql.connector.Error as e:
         print(e)
@@ -34,16 +48,14 @@ def get_cursor(this_connection):
         this_connection.ping(reconnect=True, attempts=3, delay=5)
     except mysql.connector.Error as err:
         this_connection = create_connection()
-    return this_connection.cursor()
+    return this_connection.cursor(buffered=True)
 
 
 def update_database(sql_string, data):
     try:
+        connection = create_connection()
         cursor = get_cursor(connection)
         cursor.execute(sql_string, data)
         connection.commit()
     except mysql.connector.Error as e:
         print(e)
-
-
-connection = create_connection()

@@ -1,0 +1,9 @@
+discord
+dhooks
+requests
+Pillow
+pytz
+mysql
+google
+praw
+asyncpraw

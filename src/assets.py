@@ -16,7 +16,10 @@ calc_cell = {
     'al_wildcard': 'Standings!S3:V14',
     'at_bat': 'Calculator!B6:F6',
     'awards': 'Calculator!A1:H1',
+    'away_lineup': 'Starting Lineups!B6:C14',
+    'away_position_changes': 'Subs!F4:H16',
     'away_score': 'CalculatorBE!F3',
+    'away_subs': 'Subs!B4:D16',
     'away_team': 'Starting Lineups!B2',
     'batter_name': 'Calculator!B6',
     'boxscore': 'Box Score!A1:A77',
@@ -34,7 +37,10 @@ calc_cell = {
     'game_end': 'Calculator!I5',
     'game_log': 'Game Log',
     'game_state': 'Calculator!B3:F3',
+    'home_lineup': 'Starting Lineups!E6:F14',
+    'home_position_changes': 'Subs!F22:H34',
     'home_score': 'CalculatorBE!E3',
+    'home_subs': 'Subs!B22:D34',
     'home_team': 'Starting Lineups!E2',
     'ind_standings': 'Standings!A4:D7',
     'league': 'Starting Lineups!G2',
@@ -46,7 +52,7 @@ calc_cell = {
     'nl_central': 'Standings!E4:H8',
     'nl_west': 'Standings!I4:L8',
     'nl_wildcard': 'Standings!N3:Q14',
-    'pitch': 'Calculator!E6',
+    'deprecated_pitch': 'Calculator!E6',
     'pitcher_name': 'Calculator!D6',
     'play_number': 'Calculator!G6',
     'reddit_ping': 'Calculator!B15',
@@ -58,6 +64,49 @@ calc_cell = {
     'twi_standings': 'Standings!A12:D15',
     'ump_list': 'Calculator!F24:F26',
     'wnd_standings': 'Standings!F12:I15'
+}
+
+calc_cell2 = {
+    'after_swing': 'CalcBE!Q3:U3',
+    'all_players': 'LineupBE!A2:A52',
+    'at_bat': 'CalcBE!G3:K3',
+    'awards': 'Calc!I24:L24',
+    'away_lineup': 'Starting Lineups!B6:C16',
+    'away_pitcher': 'Subs!J14',
+    'away_sub_list': 'LineupBE!C3:C27',
+    'away_team': 'Starting Lineups!B2',
+    'before_swing': 'CalcBE!B3:F3',
+    'boxscore': 'Box Score!A1:A77',
+    'current_matchup': 'Calc!C6:E6',
+    'current_situation': 'Box Score!C3',
+    'discord_ping': 'Calc!C23:E26',
+    'due_up': 'Box Score!C7',
+    'event': 'Calc!G10',
+    'game_complete': 'Calc!L21',
+    'game_log': 'NewGL!G:BL',
+    'game_sheet_input': 'Game Sheet Input',
+    'good_lineup': 'Starting Lineups!B18:E18',
+    'home_lineup': 'Starting Lineups!E6:F16',
+    'home_pitcher': 'Subs!J32',
+    'home_sub_list': 'LineupBE!C30:C54',
+    'home_team': 'Starting Lineups!E2',
+    'line_score': 'Box Score!A10:A13',
+    'log_result': 'CalcBE!BK3:CB3',
+    'matchup_info': 'CalcBE!V3:AB3',
+    'milr_check': 'Starting Lineups!G2',
+    'next_up': 'Box Score!C5',
+    'obc_before': 'CalcBE!D3',
+    'swing': 'Calc!C10',
+    'pitch': 'Calc!E10',
+    'starting_pitchers': 'Starting Lineups!B16:E16',
+    'pitcher_list': 'newGL!I3:I130',
+    'pitcher_performance': 'Box Score!A39:A43',
+    'pitcher_ab': 'Calc!C24:26',
+    'play_number': 'Calc!H3',
+    'reddit_ping': 'Calc!C16:G19',
+    'result': 'CalcBE!L3:O3',
+    'result_embed': 'Calc!J7:J16',
+    'scoring_plays': 'boxscoreBE!T140:T165'
 }
 
 batting_types = {
@@ -148,7 +197,37 @@ main_role_ids = {
     'Reliever of the Year': 818978149210521691,
     'Silver Slugger': 801834215724941383,
     'Paper Cup Winner': 801834274319368284,
-    'Styrofoam Cup Winner': 801840064803635220
+    'Styrofoam Cup Winner': 801840064803635220,
+    'Ump Warden': 436348522246438912,
+    'Ump Council': 600416061455859753,
+    'LOM': 805537549615366154,
 }
 
 fcb_team_ids = ['PUR', 'ORD', 'MSU', 'MCH', 'HRW', 'PAN']
+
+valid_positions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PH', 'PR']
+
+steal_types = ['STEAL 2B', 'STEAL 3B', 'STEAL HOME', 'MSTEAL 3B', 'MSTEAL HOME']
+
+event_types = ['Swing', 'Auto K', 'Auto BB', 'Bunt', 'Steal 2B', 'Steal 3B', 'Infield In', 'IBB']
+
+states = ['WAITING FOR LINEUPS',
+          'WAITING FOR PITCH',
+          'WAITING FOR SWING',
+          'WAITING FOR RESULT',
+          'PAUSED',
+          'WAITING FOR PITCHER CONFIRMATION',
+          'WAITING FOR UMP CONFIRMATION',
+          'FINALIZING',
+          'COMPLETE']
+
+obc_state = {
+    0: 'Bases Empty',
+    1: 'Runner on First',
+    2: 'Runner on Second',
+    3: 'Runner on Third',
+    4: 'Runners on First and Second',
+    5: 'Runners on First and Third',
+    6: 'Runners on Second and Third',
+    7: 'Bases Loaded',
+}

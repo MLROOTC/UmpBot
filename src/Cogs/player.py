@@ -1,9 +1,15 @@
 import configparser
+import datetime
+import time
+
+import pytz
 from discord.ext import commands
 import src.db_controller as db
 import src.assets as assets
 import discord
 import src.sheets_reader as sheets
+from src.Ump import robo_ump
+from src.Ump import flavor_text_generator
 
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
@@ -134,6 +140,11 @@ class Player(commands.Cog):
                 await ctx.author.send(content='Your request to claim the following player has been denied.', embed=embed)
         elif user_react.emoji == '❌':
             return
+
+    @commands.command(brief='Link to Ump Bot Help Document',
+                      description='Link to Ump Bot Help Document')
+    async def doc(self, ctx):
+        await ctx.send(self.config_ini['URLs']['help'])
 
     @commands.command(brief='FCB Pitching Stats',
                       description='Displays pitching stats for MiLR')
@@ -319,18 +330,7 @@ class Player(commands.Cog):
         if not player:
             return
         if player:
-            sheet_id = sheets.get_sheet_id(self.config_ini['URLs']['mlr_roster'])
-            player_stats = sheets.read_sheet(sheet_id, 'Player Stats')
             embed = player_embed(player)
-            for p in player_stats:
-                if p[1] == 'Hitting Stats':
-                    session = p[90]
-                elif p[0] == player[1]:
-                    if player[7] != 'P':
-                        embed.add_field(name='AVG/OBP/SLG/OPS', value='%s/%s/%s/%s' % (p[17], p[18], p[19], p[20]), inline=False)
-                    if player[7] == 'P' or player[7] == 'PH':
-                        embed.add_field(name='IP/ER/ERA/WHIP', value='%s/%s/%s/%s' % (p[44], p[47], p[68], p[70]), inline=False)
-                    embed.set_footer(text='*Stats shown through Session %s' % session)
             await ctx.send(embed=embed)
 
     @commands.command(brief='MLR Pitching Stats',
@@ -366,6 +366,9 @@ class Player(commands.Cog):
         players = players.replace(' ;', ';')
         players = players.replace('; ', ';')
         players = players.split(';')
+        if len(players) == 1:
+            await ctx.send('Improper fomat. Please use `.ranges <battername>; <pitchername>` or use `.help ranges` for more options. ')
+            return
         result_types = ['HR', '3B', '2B', '1B', 'BB', 'FO', 'K', 'PO', 'RGO', 'LGO']
         batter = await get_player(ctx, players[0])
         pitcher = await get_player(ctx, players[1])
@@ -547,7 +550,14 @@ class Player(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        return
+        server_id = 344859525582422016
+        role_id = 983902709612703744
+        channel_id = 1024436874892288110
+        channel = self.bot.get_channel(channel_id)
+        main = self.bot.get_guild(server_id)
+        role = discord.utils.get(main.roles, id=role_id)
+        await ctx.send(f'`{role.mention}`')
+        await channel.send(role.mention)
 
     @commands.command(brief='Ump council form',
                       description='Returns a link to the google form for an ump council ruling.')
@@ -572,8 +582,8 @@ class Player(commands.Cog):
         await ctx.send(embed=embed)
 
 
-def setup(bot):
-    bot.add_cog(Player(bot))
+async def setup(bot):
+    await bot.add_cog(Player(bot))
 
 
 # Helper Functions
@@ -642,7 +652,20 @@ async def get_player(ctx, name):
 
 
 def player_embed(player):
-    player_id, player_name, team, batting_type, pitching_type, hand_bonus, hand, pos1, pos2, pos3, reddit_name, discord_name, discord_id, format_no, status, posValue = player
+    player_id = player[0]
+    player_name = player[1]
+    team = player[2]
+    batting_type = player[3]
+    pitching_type = player[4]
+    hand_bonus = player[5]
+    hand = player[6]
+    pos1 = player[7]
+    pos2 = player[8]
+    pos3 = player[9]
+    reddit_name = player[10]
+    discord_name = player[11]
+    discord_id = player[12]
+    milr_team = player[16]
     if not discord_name:
         discord_name = '--'
     if discord_id:
@@ -878,7 +901,6 @@ def team_embed(team_abbr):
         if gm or co_gm:
             embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
 
-
     if team[4]:
         embed.add_field(name='Result Webhook', value='Enabled', inline=True)
     else:
@@ -905,12 +927,12 @@ def team_embed(team_abbr):
 
 
 def scoreboard(league, season, session):
-    sql = '''SELECT awayTeam, awayScore, homeTeam, homeScore, inning, outs, obc, complete FROM gameData WHERE league=%s AND season=%s AND session=%s ORDER BY awayTeam'''
+    sql = '''SELECT awayTeam, awayScore, homeTeam, homeScore, inning, outs, obc, complete, state FROM gameData WHERE league=%s AND season=%s AND session=%s ORDER BY awayTeam'''
     games = db.fetch_data(sql, (league, season, session))
     if games:
         scoreboard_txt = ''
         for game in games:
-            away_team, away_score, home_team, home_score, inning, outs, obc, complete = game
+            away_team, away_score, home_team, home_score, inning, outs, obc, complete, state = game
             if away_team is None:
                 continue
             b1 = '○'
@@ -932,6 +954,7 @@ def scoreboard(league, season, session):
             else:
                 scoreboard_txt += '```%3s %2s     %s       %s\n' % (away_team, away_score, b2, inning)
                 scoreboard_txt += '%3s %2s   %s   %s   %s out\r\n\r\n```' % (home_team, home_score, b3, b1, outs)
+                scoreboard_txt += f'{state}\r\n'
             scoreboard_txt += ''
         scoreboard_txt += ''
         if scoreboard_txt:

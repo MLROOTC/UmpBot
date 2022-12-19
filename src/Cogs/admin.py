@@ -34,6 +34,12 @@ class Admin(commands.Cog):
                                   ' Accepts the abbreviated team name and the URL as arguments.')
     @commands.has_role(ump_admin)
     async def add_webhook(self, ctx, team, *, url):
+        hook = Webhook(url)
+        try:
+            hook.send('Test')
+        except Exception as e:
+            await ctx.send('Invalid webhook provided.')
+            return
         sql = '''UPDATE teamData SET webhook_url = %s WHERE abb=%s'''
         db.update_database(sql, (url, team.upper()))
         db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = %s''', (team,))
@@ -42,22 +48,9 @@ class Admin(commands.Cog):
         else:
             await ctx.send('Something went wrong.')
 
-    @commands.command(brief='Add an upmire to the database',
-                      description='Adds a discord user to the umpire table in the database. @ the discord user and then'
-                            ' provide their player ID.\n\nNote: Tech role is required to use this command.')
-    @commands.has_role(ump_admin)
-    async def add_ump(self, ctx, member: discord.Member, player_id):
-        player_id = int(player_id)
-        sql = '''SELECT * FROM playerData WHERE playerID=%s'''
-        player = db.fetch_data(sql, (int(player_id),))
-        ump_data = (player[0][1], member.id, player_id)
-        sql = '''INSERT INTO umpData(umpName, discordID, playerID) VALUES (%s, %s, %s)'''
-        db.update_database(sql, ump_data)
-        await ctx.send('%s added to ump database.' % member.display_name)
-
     @commands.has_role(league_ops_role)
-    @commands.command(brief='',
-                      description='')
+    @commands.command(brief='Generate draft imagines',
+                      description='Generate images for players being drafted.')
     async def draft(self, ctx, draft_round, draft_pick, team, *, player_name):
         team_data = db.fetch_data('SELECT name, color, logo_url FROM teamData WHERE abb=%s', (team,))
         if not team_data:
@@ -173,24 +166,15 @@ class Admin(commands.Cog):
                             error_log.send('Failed to set user ID for <@%s>' % member.id)
         await ctx.send('Done.')
 
-    @commands.command(brief='Removes a discord user as an umpire',
-                      description='Adds a discord user to the umpire table in the database. @ the discord user as an '
-                                  'argument.\n\nNote: Tech role is required to use this command.')
-    @commands.has_role(ump_admin)
-    async def remove_ump(self, ctx, member: discord.Member):
-        sql = '''DELETE FROM umpData WHERE discordID=%s'''
-        db.update_database(sql, (member.id,))
-        await ctx.send('%s removed from ump database.' % member.display_name)
-
     @commands.command(brief='Removes a team\'s existing webhook URL',
                       description='Removes a webhook URL from the database.\n\nNote: Tech role is required to use this'
                                   ' command.')
     @commands.has_role(ump_admin)
     async def remove_webhook(self, ctx, team):
         sql = '''UPDATE teamData SET webhook_url = %s WHERE abb=%s'''
-        db.update_database(sql, ('', team.upper()))
-        db_team = db.fetch_data('''SELECT * FROM teamData WHERE abb = %s''', (team,))
-        if db_team[0][4] == '':
+        db.update_database(sql, (None, team.upper()))
+        webhook_url, = db.fetch_one('''SELECT webhook_url FROM teamData WHERE abb = %s''', (team,))
+        if webhook_url is None:
             await ctx.send('Webhook URL reset successfully.')
         else:
             await ctx.send('Something went wrong.')
@@ -220,61 +204,64 @@ class Admin(commands.Cog):
     async def sync_database(self, ctx):
         await ctx.message.add_reaction(loading_emote)
         # Update player appointments...
-        # mlr_roster = read_config(config_ini, 'URLs', 'backend_sheet_id')
-        # mlr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['mlr_appointments'])
-        # milr_appointments = sheets.read_sheet(mlr_roster, assets.calc_cell['milr_appointments'])
-        # for team in mlr_appointments:
-        #     cogm = ''
-        #     captain1 = ''
-        #     captain2 = ''
-        #     captain3 = ''
-        #     committee1 = ''
-        #     committee2 = ''
-        #     awards1 = ''
-        #     awards2 = ''
-        #     abb = team[0]
-        #     gm = team[1]
-        #     if len(team) >= 3:
-        #         cogm_check = sheets.read_sheet(mlr_roster, '%s!I2' % abb)
-        #         if cogm_check[0][0] == 'Co-GM:':
-        #             cogm = team[2]
-        #         else:
-        #             captain1 = team[2]
-        #     if len(team) >= 4:
-        #         captain2 = team[3]
-        #     if len(team) >= 5:
-        #         captain3 = team[4]
-        #     if len(team) >= 6:
-        #         committee1 = team[5]
-        #     if len(team) >= 7:
-        #         committee2 = team[6]
-        #     if len(team) >= 8:
-        #         awards1 = team[7]
-        #     if len(team) >= 9:
-        #         awards2 = team[8]
-        #     team_data = (gm, cogm, captain1, captain2, captain3, committee1, committee2, awards1, awards2, abb)
-        #     sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s, committee1=%s, committee2=%s, awards1=%s, awards2=%s WHERE abb=%s'''
-        #     db.update_database(sql, team_data)
-        # for team in milr_appointments:
-        #     gm = ''
-        #     cogm = ''
-        #     captain1 = ''
-        #     captain2 = ''
-        #     captain3 = ''
-        #     abb = team[0]
-        #     if len(team) >= 2:
-        #         gm = team[1]
-        #     if len(team) >= 3:
-        #         cogm = team[2]
-        #     if len(team) >= 6:
-        #         captain1 = team[5]
-        #     if len(team) >= 7:
-        #         captain2 = team[6]
-        #     if len(team) >= 8:
-        #         captain3 = team[7]
-        #     team_data = (gm, cogm, captain1, captain2, captain3, abb)
-        #     sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s WHERE abb=%s'''
-        #     db.update_database(sql, team_data)
+        mlr_backend = read_config(config_ini, 'URLs', 'backend_sheet_id')
+        milr_backend = read_config(config_ini, 'URLs', 'milr_backend_sheet_id')
+        mlr_roster = read_config(league_config, 'Rosters', 'mlr_s8')
+        milr_roster = read_config(league_config, 'Rosters', 'milr_s8')
+        mlr_appointments = sheets.read_sheet(mlr_backend, assets.calc_cell['mlr_appointments'])
+        milr_appointments = sheets.read_sheet(milr_backend, assets.calc_cell['mlr_appointments'])
+
+        for team in mlr_appointments:
+            cogm = ''
+            captain1 = ''
+            captain2 = ''
+            captain3 = ''
+            committee1 = ''
+            committee2 = ''
+            awards1 = ''
+            awards2 = ''
+            abb = team[0]
+            gm = team[1]
+            if len(team) >= 3:
+                cogm_check = sheets.read_sheet(mlr_roster, '%s!I2' % abb)
+                if cogm_check[0][0] == 'Co-GM:':
+                    cogm = team[2]
+                else:
+                    captain1 = team[2]
+            if len(team) >= 4:
+                captain2 = team[3]
+            if len(team) >= 5:
+                captain3 = team[4]
+            if len(team) >= 6:
+                committee1 = team[5]
+            if len(team) >= 7:
+                committee2 = team[6]
+            if len(team) >= 8:
+                awards1 = team[7]
+            if len(team) >= 9:
+                awards2 = team[8]
+            team_data = (gm, cogm, captain1, captain2, captain3, committee1, committee2, awards1, awards2, abb)
+            sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s, captain3=%s, committee1=%s, committee2=%s, awards1=%s, awards2=%s WHERE abb=%s'''
+            db.update_database(sql, team_data)
+
+        # Update MiLR Appointments
+        for team in milr_appointments:
+            gm = ''
+            cogm = ''
+            captain1 = ''
+            captain2 = ''
+            abb = team[0]
+            if len(team) >= 2:
+                gm = team[1]
+            if len(team) >= 3:
+                 cogm = team[2]
+            if len(team) >= 4:
+                captain1 = team[3]
+            if len(team) >= 5:
+                captain2 = team[4]
+            team_data = (gm, cogm, captain1, captain2, abb)
+            sql = '''UPDATE teamData SET gm=%s, cogm=%s, captain1=%s, captain2=%s WHERE abb=%s'''
+            db.update_database(sql, team_data)
 
         # Update Discord Username In the Backend Sheet based on the Discord ID
         sheet_id = read_config(config_ini, 'URLs', 'backend_sheet_id')
@@ -328,8 +315,8 @@ class Admin(commands.Cog):
         await ctx.send('Done.')
 
 
-def setup(bot):
-    bot.add_cog(Admin(bot))
+async def setup(bot):
+    await bot.add_cog(Admin(bot))
 
 
 def read_config(filename, section, setting):
