@@ -367,7 +367,8 @@ async def get_pitch(bot, player_id, league, season, session, game_id):
             if not pitch_src.edited_at:
                 sql = '''UPDATE pitchData SET pitch_src=%s, pitch_requested=%s, pitch_submitted=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
                 db.update_database(sql, (pitch_src.id, datetime.datetime.now().timestamp(), datetime.datetime.now().timestamp(), league, season, session, game_id))
-                await dm_channel.send(f'Using {await parse_pitch(bot, discord_id, pitch_src.id)}')
+                pitch = await parse_pitch(bot, discord_id, pitch_src.id)
+                await dm_channel.send(f'Using {pitch}')
                 current_list = current_list[1:]
                 if len(current_list) == 0:
                     await dm_channel.send('List depleted, use `.queue_pitch` to add more pitches.')
