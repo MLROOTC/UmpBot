@@ -512,6 +512,26 @@ class Game(commands.Cog):
             else:
                 await ctx.send("Swing already submitted, can't call infield in now.")
 
+    @commands.command(brief='Reset infield in back to normal',
+                      description='Set the infield out for the current at bat. Re-posts the at bat ping if one has already been posted.',
+                      aliases=['ifout', 'infieldout', 'if_out'])
+    async def infield_out(self, ctx, team: str, season: int = None, session: int = None):
+        if not season and not session:
+            season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sheet_id = robo_ump.get_sheet(league, season, session, game_id)
+        current_pitcher, pitch_submitted, swing_requested, swing_submitted = db.fetch_one('SELECT current_pitcher, pitch_submitted, swing_requested, swing_submitted FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+        player_id = robo_ump.get_player_from_discord(ctx.author.id)
+        if robo_ump.player_is_allowed(ctx.author.id, team) or (ctx.guild is None and player_id == current_pitcher):
+            if not swing_submitted:
+                robo_ump.log_msg(f'{ctx.author.name} set Infield Out for {league} {season}.{session}.{game_id}')
+                event = robo_ump.set_event(sheet_id, 'Swing')
+                await ctx.send(f'Event set to {event}')
+                if pitch_submitted and swing_requested:
+                    await robo_ump.post_at_bat(self.bot, league, season, session, game_id)
+            else:
+                await ctx.send("Swing already submitted, can't change infield position now.")
+
     @commands.command(brief='Pause the game from advancing',
                       description='Allows GMs to pause the game from automatically resulting, prompting for a pitch, or posting an AB on reddit.',
                       aliases=['pause'])
