@@ -72,11 +72,16 @@ class Game(commands.Cog):
 
                 await ctx.send('Conditional pitch request sent to pitcher.')
                 conditional_pitch = await self.bot.wait_for('message', check=wait_for_response)
-                sql = '''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-                db.update_database(sql, (conditional_pitch.id,) + game)
-                robo_ump.log_msg(f'Conditional pitch submitted for {league} {season}.{session}.{game_id}')
-                await conditional_pitch.add_reaction('👍')
-                await ctx.send('Conditional pitch submitted.')
+                # check to make sure the GM didn't do a second conditional sub afterwards and they are still the conditional pitcher
+                conditional_pitcher_id, = db.fetch_one('SELECT conditional_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+                if conditional_pitcher == conditional_pitcher_id:
+                    sql = '''UPDATE pitchData SET conditional_pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                    db.update_database(sql, (conditional_pitch.id,) + game)
+                    robo_ump.log_msg(f'Conditional pitch submitted for {league} {season}.{session}.{game_id}')
+                    await conditional_pitch.add_reaction('👍')
+                    await ctx.send('Conditional pitch submitted.')
+                else:
+                    await pitcher.send('Conditional pitch is no longer necessary.')
             else:
                 await ctx.send(f'Could not find a player account linked to {pitcher}')
 
@@ -107,11 +112,15 @@ class Game(commands.Cog):
 
                 await ctx.send('Conditional swing request sent to batter.')
                 conditional_swing = await self.bot.wait_for('message', check=wait_for_response)
-                sql = '''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
-                db.update_database(sql, (conditional_swing.id,) + game)
-                robo_ump.log_msg(f'Conditional swing submitted for {league} {season}.{session}.{game_id}')
-                await conditional_swing.add_reaction('👍')
-                await ctx.send('Conditional swing submitted.')
+                conditional_batter_id, = db.fetch_one('SELECT conditional_batter FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (league, season, session, game_id))
+                if conditional_batter == conditional_batter_id:
+                    sql = '''UPDATE pitchData SET conditional_swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+                    db.update_database(sql, (conditional_swing.id,) + game)
+                    robo_ump.log_msg(f'Conditional swing submitted for {league} {season}.{session}.{game_id}')
+                    await conditional_swing.add_reaction('👍')
+                    await ctx.send('Conditional swing submitted.')
+                else:
+                    await batter.send('Conditional swing is no longer necessary.')
             else:
                 await ctx.send(f'Could not find a player account linked to {batter}')
 
@@ -922,7 +931,6 @@ class Game(commands.Cog):
             cancel = Button(label="Cancel", style=discord.ButtonStyle.red)
 
             async def done_lineup(interaction):
-                # TODO defer interaction
                 await interaction.response.defer()
                 if robo_ump.lineup_check(sheet_id):
                     matchup_info = sheets.read_sheet(sheet_id, assets.calc_cell2['matchup_info'])
