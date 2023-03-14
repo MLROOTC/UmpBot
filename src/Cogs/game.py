@@ -15,6 +15,7 @@ league_ini.read('league.ini')
 
 ump_warden_role = int(config_ini['Discord']['ump_warden_role'])
 umpire_role = int(config_ini['Discord']['umpire_role'])
+ump_helper_role = int(config_ini['Discord']['ump_helper'])
 lom_role = int(config_ini['Discord']['lom_role'])
 standings_channel = int(config_ini['Channels']['standings_channel'])
 
@@ -960,6 +961,34 @@ class Game(commands.Cog):
             view.add_item(cancel)
 
             await ctx.send(content=f'Here\'s your game sheet, please update the **Starting Lineups** tab.\nhttps://docs.google.com/spreadsheets/d/{sheet_id}', view=view)
+
+    @commands.command(brief='Manually set pitch message ID',
+                      description='Manual override for pitch message ID',
+                      aliases=['setpitch'])
+    @commands.has_role(ump_helper_role)
+    async def set_pitch(self, ctx, team: str, url: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        url = url.split('/')
+        message_id = url[-1]
+        sql = '''UPDATE pitchData SET pitch_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, (message_id, league, season, session, game_id))
+        robo_ump.log_msg(f'{league.upper()} {season}.{session}.{game_id} {ctx.author.name} manually set pitch_src to {message_id}')
+        await ctx.message.add_reaction('👍')
+
+    @commands.command(brief='Manually set swing message ID',
+                      description='Manual override for swing message ID',
+                      aliases=['setswing'])
+    @commands.has_role(ump_helper_role)
+    async def set_swing(self, ctx, team: str, url: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        url = url.split('/')
+        message_id = url[-1]
+        sql = '''UPDATE pitchData SET swing_src=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
+        db.update_database(sql, (message_id, league, season, session, game_id))
+        robo_ump.log_msg(f'{league.upper()} {season}.{session}.{game_id} {ctx.author.name} manually set swing_src to {message_id}')
+        await ctx.message.add_reaction('👍')
 
     @commands.command(brief='Override game state',
                       description='Manual override to update the state of a game.',
