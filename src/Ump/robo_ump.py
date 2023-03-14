@@ -9,6 +9,7 @@ import src.db_controller as db
 import src.reddit_interface as reddit
 import src.sheets_reader as sheets
 import src.Ump.flavor_text_generator as flavor
+import traceback
 
 config_parser = configparser.ConfigParser()
 config_ini = 'config.ini'
@@ -574,61 +575,70 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
                pitch, swing, diff, exact_result, rbi, run,
                pitch_requested, pitch_submitted, swing_requested, swing_submitted
                ):
-    play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
-    pa_id = get_pa_id(league, season, session, game_id, play_number[0])
+    try:
+        play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
+        pa_id = get_pa_id(league, season, session, game_id, play_number[0])
 
-    sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
-    inning_id = db.fetch_data(sql, (league, season, session, game_id, inning))
+        sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
+        inning_id = db.fetch_data(sql, (league, season, session, game_id, inning))
 
-    if exact_result in ['IBB', 'AUTO K', 'AUTO BB']:
-        pitch = None
-        swing = None
-        diff = None
+        if exact_result in ['IBB', 'AUTO K', 'AUTO BB']:
+            pitch = None
+            swing = None
+            diff = None
 
-    if inning_id:
-        inning_id = inning_id[0][0]
-    else:
-        inning_id = read_config(league_config, league.upper(), 'inningid')
-        inning_id = int(inning_id)
-        write_config(league_config, league.upper(), 'inningid', str(inning_id + 1))
+        if inning_id:
+            inning_id = inning_id[0][0]
+        else:
+            inning_id = read_config(league_config, league.upper(), 'inningid')
+            inning_id = int(inning_id)
+            write_config(league_config, league.upper(), 'inningid', str(inning_id + 1))
 
-    result_log = sheets.read_sheet(sheet_id, assets.calc_cell2['log_result'])
-    if result_log:
-        result_log = result_log[0]
-    old_result = result_log[0]
-    result_at_neutral = result_log[2]
-    result_all_neutral = result_log[3]
+        old_result = None
+        result_at_neutral = None
+        result_all_neutral = None
+        result_log = sheets.read_sheet(sheet_id, assets.calc_cell2['log_result'])
+        if result_log:
+            result_log = result_log[0]
+        if result_log[0]:
+            old_result = result_log[0]
+        if result_log[2]:
+            result_at_neutral = result_log[2]
+        if result_log[3]:
+            result_all_neutral = result_log[3]
 
-    batter_wpa = None
-    pitcher_wpa = None
-    pr_3B = None
-    pr_2B = None
-    pr_1B = None
-    pr_AB = None
-    # pr_3B = result_log[10]
-    # pr_2B = result_log[11]
-    # pr_1B = result_log[12]
-    # pr_AB = result_log[13]
+        batter_wpa = None
+        pitcher_wpa = None
+        pr_3B = None
+        pr_2B = None
+        pr_1B = None
+        pr_AB = None
+        # pr_3B = result_log[10]
+        # pr_2B = result_log[11]
+        # pr_1B = result_log[12]
+        # pr_AB = result_log[13]
 
-    # Check if result is already logged
-    sql = '''SELECT * FROM PALogs WHERE paID=%s'''
-    result_in_db = db.fetch_one(sql, (pa_id,))
-    data = (pa_id, league, season, session, game_id, inning, inning_id, play_number, outs, obc, away_score, home_score,
-            pitcher_team, pitcher_name, pitcher_id, batter_team, batter_name, batter_id,
-            pitch, swing, diff, exact_result, old_result, result_at_neutral, result_all_neutral,
-            rbi, run, batter_wpa, pitcher_wpa, pr_3B, pr_2B, pr_1B, pr_AB,
-            pitch_requested, pitch_submitted, swing_requested, swing_submitted
-            )
-    if result_in_db:
-        sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID =%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B =%s, prAB =%s, pitch_requested =%s, pitch_submitted=%s, swing_requested =%s, swing_submitted=%s WHERE paID=%s'''
-        data = data + (pa_id,)
-    else:
-        sql = '''INSERT INTO PALogs 
-        (paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB, pitch_requested, pitch_submitted, swing_requested, swing_submitted)
-         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
-    db.update_database(sql, data)
-    log_msg(f'Result logged: {data}')
-    return
+        # Check if result is already logged
+        sql = '''SELECT * FROM PALogs WHERE paID=%s'''
+        result_in_db = db.fetch_one(sql, (pa_id,))
+        data = (pa_id, league, season, session, game_id, inning, inning_id, play_number, outs, obc, away_score, home_score,
+                pitcher_team, pitcher_name, pitcher_id, batter_team, batter_name, batter_id,
+                pitch, swing, diff, exact_result, old_result, result_at_neutral, result_all_neutral,
+                rbi, run, batter_wpa, pitcher_wpa, pr_3B, pr_2B, pr_1B, pr_AB,
+                pitch_requested, pitch_submitted, swing_requested, swing_submitted
+                )
+        if result_in_db:
+            sql = '''UPDATE PALogs SET paID=%s, league=%s, season=%s, session=%s, gameID=%s, inning=%s, inningID=%s, playNumber=%s, outs=%s, obc=%s, awayScore=%s, homeScore=%s, pitcherTeam=%s, pitcherName=%s, pitcherID =%s, hitterTeam=%s, hitterName=%s, hitterID=%s, pitch=%s, swing=%s, diff=%s, exactResult=%s, oldResult=%s, resultAtNeutral=%s, resultAllNeutral=%s, rbi=%s, run=%s, batterWPA=%s, pitcherWPA=%s, pr3B=%s, pr2B=%s, pr1B =%s, prAB =%s, pitch_requested =%s, pitch_submitted=%s, swing_requested =%s, swing_submitted=%s WHERE paID=%s'''
+            data = data + (pa_id,)
+        else:
+            sql = '''INSERT INTO PALogs 
+            (paID, league, season, session, gameID, inning, inningID, playNumber, outs, obc, awayScore, homeScore, pitcherTeam, pitcherName, pitcherID, hitterTeam, hitterName, hitterID, pitch, swing, diff, exactResult, oldResult, resultAtNeutral, resultAllNeutral, rbi, run, batterWPA, pitcherWPA, pr3B, pr2B, pr1B, prAB, pitch_requested, pitch_submitted, swing_requested, swing_submitted)
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+        db.update_database(sql, data)
+        log_msg(f'Result logged: {data}')
+        return
+    except Exception as e:
+        log_msg(f'Failed to log: `{data}\n{str(e)}\n{traceback.print_exc()}`')
 
 
 def audit_game_log(league, season, session, game_id, sheet_id):
@@ -685,8 +695,9 @@ def audit_game_log(league, season, session, game_id, sheet_id):
                     else:
                         continue
                     db.update_database(sql, data)
-                except ValueError as e:
-                    log_msg(f'Failed to audit: `{data}`')
+                except Exception as e:
+                    log_msg(f'Failed to audit: `{data}\n{str(e)}\n{traceback.print_exc()}`')
+                    log_msg(f'`{row}`\n<https://docs.google.com/spreadsheets/d/{sheet_id}>')
 
 
 def remove_from_pa_log(pa_id):
@@ -964,6 +975,10 @@ def get_game_discussion(bot, league):
     return bot.get_channel(int(read_config(league_config, league.upper(), 'game_discussion')))
 
 
+def get_standings_channel(bot, league):
+    return bot.get_channel(int(read_config(league_config, league.upper(), 'standings_channel')))
+
+
 def set_event(sheet_id: str, event_type: str):
     sheets.update_sheet(sheet_id, assets.calc_cell2['event'], event_type)
     return sheets.read_sheet(sheet_id, assets.calc_cell2['event'])[0][0]
@@ -1036,8 +1051,7 @@ async def subs(league, season, session, game_id):
                 player_out, player_in, position = sub
                 player_out = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_out,))[0]
                 player_in = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_in,))[0]
-                batting_order = db.fetch_data( '''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''',
-                    (league, season, session, game_id, player_out, True))
+                batting_order = db.fetch_data('''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player_out, True))
                 if batting_order:
                     batting_order = batting_order[-1][0]
                 data = (league, season, session, game_id, player_in, position, batting_order, 1, 0)
