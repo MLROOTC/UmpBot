@@ -16,6 +16,7 @@ league_ini.read('league.ini')
 ump_warden_role = int(config_ini['Discord']['ump_warden_role'])
 umpire_role = int(config_ini['Discord']['umpire_role'])
 lom_role = int(config_ini['Discord']['lom_role'])
+standings_channel = int(config_ini['Channels']['standings_channel'])
 
 
 class Game(commands.Cog):
@@ -207,6 +208,9 @@ class Game(commands.Cog):
                 channel = robo_ump.get_game_discussion(self.bot, league)
                 await channel.send(content=game_discussion_ping, embed=embed)
                 await interaction.followup.send(content='Game closed.')
+                if (1 <= session <= 16) and league.upper() in 'MLR':
+                    standings = self.bot.get_channel(standings_channel)
+                    await standings.send(f'<@140306370359459840> game complete: {away_team} {away_score} - {home_team} {home_score}')
 
         async def cancel_request(interaction):
             await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
