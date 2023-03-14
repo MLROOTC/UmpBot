@@ -995,6 +995,17 @@ class Game(commands.Cog):
         await robo_ump.create_ump_sheets(self.bot, session)
         await ctx.send('Done.')
 
+    @commands.command(brief='Get ump helper sheet',
+                      description='Gets a link to the ump helper sheet')
+    @commands.has_role(umpire_role)
+    async def sheet(self, ctx, team: str):
+        season, session = robo_ump.get_current_session(team)
+        league, season, session, game_id = robo_ump.fetch_game_team(team, season, session)
+        sql = 'SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'
+        sheet_id = db.fetch_one(sql, (league, season, session, game_id))
+        if sheet_id:
+            await ctx.send(f'https://docs.google.com/spreadsheets/d/{sheet_id[0]}')
+
     @commands.command(brief='Submit a conditional pitch if a sub is still pending',
                       description='If the bot is restarted while a pending conditional sub was awaiting a reply, it will prompt the pitcher to submit their pitch using this command.',
                       aliases=['submit_cond_pitch', 'submitconditionalpitch'])
