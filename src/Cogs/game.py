@@ -204,23 +204,24 @@ class Game(commands.Cog):
 
                 # ping in main
                 role_ids = db.fetch_data('SELECT role_id FROM teamData WHERE abb=%s OR abb=%s', (away_team, home_team))
-                game_discussion_ping = ''
-                for role in role_ids:
-                    game_discussion_ping += f'<@&{role[0]}> '
-                for i in range(len(embed.fields)):
-                    if embed.fields[i].name == 'Ump Sheet':
-                        embed.remove_field(i)
-                embed.add_field(name='Winning Pitcher', value=winning_pitcher)
-                embed.add_field(name='Losing Pitcher', value=losing_pitcher)
-                if save:
-                    embed.add_field(name='Save', value=save)
-                embed.add_field(name='Player of the Game', value=potg)
-                channel = robo_ump.get_game_discussion(self.bot, league)
-                await channel.send(content=game_discussion_ping, embed=embed)
-                await interaction.followup.send(content='Game closed.')
-                if (1 <= session <= 16) and league.upper() in 'MLR':
-                    standings = self.bot.get_channel(standings_channel)
-                    await standings.send(f'<@140306370359459840> game complete: {away_team} {away_score} - {home_team} {home_score}')
+                if role_ids:
+                    game_discussion_ping = ''
+                    for role in role_ids:
+                        game_discussion_ping += f'<@&{role[0]}> '
+                    for i in range(len(embed.fields)):
+                        if embed.fields[i].name == 'Ump Sheet':
+                            embed.remove_field(i)
+                    embed.add_field(name='Winning Pitcher', value=winning_pitcher)
+                    embed.add_field(name='Losing Pitcher', value=losing_pitcher)
+                    if save:
+                        embed.add_field(name='Save', value=save)
+                    embed.add_field(name='Player of the Game', value=potg)
+                    channel = robo_ump.get_game_discussion(self.bot, league)
+                    await channel.send(content=game_discussion_ping, embed=embed)
+                    await interaction.followup.send(content='Game closed.')
+                    if (1 <= session <= 16) and league.upper() in 'MLR':
+                        standings = self.bot.get_channel(standings_channel)
+                        await standings.send(f'<@140306370359459840> game complete: {away_team} {away_score} - {home_team} {home_score}')
 
         async def cancel_request(interaction):
             await interaction.response.edit_message(content='Request cancelled.', view=None, embed=None)
@@ -946,12 +947,21 @@ class Game(commands.Cog):
                     home_sp = robo_ump.get_player_id(starting_pitchers[3])
                     db.update_database('UPDATE pitchData SET home_pitcher=%s, away_pitcher=%s, current_batter=%s, current_pitcher=%s WHERE league=%s AND season=%s AND session=%s AND game_id=%s', (home_sp, away_sp, matchup_info[0], matchup_info[3], league, season, session, game_id))
                     await reddit.edit_thread(thread_url, robo_ump.get_box_score(sheet_id))
-                    away_role_id, = db.fetch_one('SELECT role_id FROM teamData WHERE abb=%s', (away_team,))
-                    home_role_id, = db.fetch_one('SELECT role_id FROM teamData WHERE abb=%s', (home_team,))
-                    hype_ping = f'<@&{away_role_id}> <@&{home_role_id}> your game thread has been created! {thread_url}'
-                    channel = int(robo_ump.read_config('league.ini', league.upper(), 'game_discussion'))
-                    channel = self.bot.get_channel(channel)
-                    await channel.send(hype_ping)
+                    away_role_id = db.fetch_one('SELECT role_id FROM teamData WHERE abb=%s', (away_team,))
+                    home_role_id = db.fetch_one('SELECT role_id FROM teamData WHERE abb=%s', (home_team,))
+                    if home_role_id[0]:
+                        home_role_id = home_role_id[0]
+                    else:
+                        home_role_id = None
+                    if away_role_id[0]:
+                        away_role_id = away_role_id[0]
+                    else:
+                        away_role_id = None
+                    if home_role_id and away_role_id:
+                        hype_ping = f'<@&{away_role_id}> <@&{home_role_id}> your game thread has been created! {thread_url}'
+                        channel = int(robo_ump.read_config('league.ini', league.upper(), 'game_discussion'))
+                        channel = self.bot.get_channel(channel)
+                        await channel.send(hype_ping)
                     robo_ump.set_state(league, season, session, game_id, 'WAITING FOR PITCH')
                 else:
                     await ctx.send('Still waiting for lineups.')

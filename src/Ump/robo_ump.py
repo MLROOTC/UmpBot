@@ -70,10 +70,11 @@ async def create_ump_sheets(bot, session: int):
                 db.update_database(sql, data)
 
                 # Append sheet ID to PA Log Data Gathering Sheet
-                backend_sheet = read_config(config_ini, 'URLs', 'backend_sheet_id')
-                page_name = assets.calc_cell2['game_sheet_input']
-                data = (str(datetime.datetime.now()), None, None, sheet_id, league, season, session, game_id, away_team, home_team)
-                sheets.append_sheet(backend_sheet, page_name, data)
+                if league.upper() != 'SCRIM':
+                    backend_sheet = read_config(config_ini, 'URLs', 'backend_sheet_id')
+                    page_name = assets.calc_cell2['game_sheet_input']
+                    data = (str(datetime.datetime.now()), None, None, sheet_id, league, season, session, game_id, away_team, home_team)
+                    sheets.append_sheet(backend_sheet, page_name, data)
 
                 # Post Thread
                 thread = await post_thread(sheet_id, league, season, session, away_name, home_name, flavor_text)
@@ -335,11 +336,16 @@ def get_current_lineup(league, season, session, game_id, home):
 
 def get_current_session(team):
     league = db.fetch_one('''SELECT league FROM teamData WHERE abb=%s''', (team,))
-    if league:
+    if league[0]:
         league = league[0]
         season = int(read_config(league_config, league.upper(), 'season'))
         session = int(read_config(league_config, league.upper(), 'session'))
         return season, session
+    else:
+        # see if there is a scrim game with that team?
+        data = db.fetch_one('''SELECT season, session FROM gameData WHERE league=%s AND (awayTeam=%s OR homeTeam=%s)''',('SCRIM', team.upper(), team.upper()))
+        if data:
+            return data
     return None, None
 
 
@@ -577,7 +583,7 @@ def log_result(sheet_id, league, season, session, game_id, inning, outs, obc, aw
                ):
     try:
         play_number = sheets.read_sheet(sheet_id, assets.calc_cell2['play_number'])[0][0]
-        pa_id = get_pa_id(league, season, session, game_id, play_number[0])
+        pa_id = get_pa_id(league, season, session, game_id, play_number)
 
         sql = '''SELECT inningID FROM PALogs WHERE league=%s AND season=%s AND session=%s AND gameID=%s AND inning = %s'''
         inning_id = db.fetch_data(sql, (league, season, session, game_id, inning))
@@ -653,10 +659,19 @@ def audit_game_log(league, season, session, game_id, sheet_id):
                     home_score = int(row[4])
                     away_score = int(row[5])
                     hitter_name = row[6]
-                    swing = int(row[7])
+                    if swing != '':
+                        swing = int(row[7])
+                    else:
+                        swing = None
                     pitcher_name = row[8]
-                    pitch = int(row[9])
-                    diff = int(row[11])
+                    if pitch != '':
+                        pitch = int(row[9])
+                    else:
+                        pitch = None
+                    if diff != 'x':
+                        diff = int(row[11])
+                    else:
+                        diff = None
                     exact_result = row[12]
                     rbi = int(row[13])
                     run = int(row[14])
@@ -896,7 +911,7 @@ async def result(bot, league, season, session, game_id):
         await dm_channel.send(f'```{pitcher_result}```')
 
         # Generate reddit comment
-        reddit_comment += f'{flavor.generate_flavor_text(result_type, batter_name)}\n\n'
+        # reddit_comment += f'{flavor.generate_flavor_text(result_type, batter_name)}\n\n'
         reddit_comment += f'Pitch: {pitch_number}  \nSwing: {swing_number}  \nDiff: {diff} -> {result_type}  \n\n'
         reddit_comment += f'{assets.obc_state[int(obc_after)]} | {inning_after} with {outs_after} out(s)  \n'
         reddit_comment += f'{away_team.upper()} {away_score_after} - {home_team.upper()} {home_score_after}'
@@ -943,9 +958,9 @@ async def result(bot, league, season, session, game_id):
         # Send hype pings
         if rbi != '0' or str(diff) == '500' or result_type == 'TP':
             channel = bot.get_channel(int(read_config(league_config, league.upper(), 'game_discussion')))
-            if rbi != '0' and rbi.isnumeric():
+            if rbi != '0' and rbi.isnumeric() and batter_team_data[1]:
                 await channel.send(content=f'<@&{batter_team_data[1]}>', embed=result_embed)
-            elif str(diff) == '500' or result_type == 'TP':
+            elif str(diff) == '500' or result_type == 'TP' and pitcher_team_data[1]:
                 await channel.send(content=f'<@&{pitcher_team_data[1]}>', embed=result_embed)
 
         # Commit AB to game log and reset the front end calc and then update the box score on reddit

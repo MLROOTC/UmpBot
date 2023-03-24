@@ -8,8 +8,9 @@ import src.db_controller as db
 import src.assets as assets
 import discord
 import src.sheets_reader as sheets
+import src.Ump.flavor_text_generator as text_gen
 from src.Ump import robo_ump
-from src.Ump import flavor_text_generator
+from src.Ump import flavor_text_generator as generator
 
 config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
@@ -550,14 +551,11 @@ class Player(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        server_id = 344859525582422016
-        role_id = 983902709612703744
-        channel_id = 1024436874892288110
-        channel = self.bot.get_channel(channel_id)
-        main = self.bot.get_guild(server_id)
-        role = discord.utils.get(main.roles, id=role_id)
-        await ctx.send(f'`{role.mention}`')
-        await channel.send(role.mention)
+        league = 'MLR'
+        season = 8
+        session = 69
+        game_id = 65
+        text_gen.import_templates()
 
     @commands.command(brief='Ump council form',
                       description='Returns a link to the google form for an ump council ruling.')
@@ -895,7 +893,7 @@ def team_embed(team_abbr):
             embed.add_field(name='GM(s)', value='\n'.join([gm, co_gm]), inline=False)
         if captain1 or captain2:
             embed.add_field(name='Captains', value='\n'.join([captain1, captain2]), inline=True)
-    elif team[5] == 'fcb':
+    else:
         gm = team[7]
         co_gm = team[8]
         if gm or co_gm:

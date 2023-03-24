@@ -114,7 +114,7 @@ class Pitching(commands.Cog):
             else:
                 print("I didn't think this would happen?")
         else:
-            await ctx.send("Its not time to pitch right now")
+            await ctx.send("Its not time to pitch right now. If you are trying to submit a conditional pitch please use `.submit_conditional_pitch` instead.")
 
     @commands.command(brief='Add a pitch to a list',
                       description='Creates a pitch list if it does not exist. Only one pitch can be submitted at a time.',
