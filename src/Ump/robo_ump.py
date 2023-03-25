@@ -764,7 +764,7 @@ async def post_at_bat(bot, league, season, session, game_id):
         discord_ab_ping = ''
         for line in reddit_ping:
             if len(line) > 0:
-                reddit_ab_ping += f'   {line[0]}\r\n\r\n'
+                reddit_ab_ping += f'{line[0]}\r\n\r\n'
         for line in discord_ping:
             if len(line) > 0:
                 discord_ab_ping += f'{line[0]}\n'
