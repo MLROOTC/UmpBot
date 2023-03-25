@@ -336,14 +336,17 @@ def get_current_lineup(league, season, session, game_id, home):
 
 def get_current_session(team):
     league = db.fetch_one('''SELECT league FROM teamData WHERE abb=%s''', (team,))
+    scrim = db.fetch_one('''SELECT season, session FROM gameData WHERE league=%s AND (awayTeam=%s OR homeTeam=%s) AND complete=%s''', ('SCRIM', team.upper(), team.upper(), 0))
+    if scrim:
+        return scrim
     if league[0]:
         league = league[0]
         season = int(read_config(league_config, league.upper(), 'season'))
         session = int(read_config(league_config, league.upper(), 'session'))
         return season, session
     else:
-        # see if there is a scrim game with that team?
-        data = db.fetch_one('''SELECT season, session FROM gameData WHERE league=%s AND (awayTeam=%s OR homeTeam=%s)''',('SCRIM', team.upper(), team.upper()))
+        # checks for a scrim that is finished if it can't find anything else
+        data = db.fetch_one('''SELECT season, session FROM gameData WHERE league=%s AND (awayTeam=%s OR homeTeam=%s)''', ('SCRIM', team.upper(), team.upper()))
         if data:
             return data
     return None, None
