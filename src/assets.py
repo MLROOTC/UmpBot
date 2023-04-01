@@ -329,3 +329,11 @@ team_nicknames = {
     'IL': 'IL All Stars',
     'PCL': 'PCL All Stars',
 }
+
+writeup_fails = [
+    "Wow nobody has created a writeup template for this situation. [You should change that.](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform)",
+    "Lazy humans havne't taught me what to do with this yet. [Send help.](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform)",
+    "It's fine I'll go make my own [writeup](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform) generator with blackjack and hookers."
+]
+
+writeup_placeholders = ["[BATTER]", "[BATTER_FULL_NAME]", "[PITCHER]", "[PITCHER_FULL_NAME]", "[HT_CITY]", "[HT_NICKNAME]", "[AT_CITY]", "[AT_NICKNAME]", "[BATTER_TEAM_CITY]", "[BATTER_TEAM_NICKNAME]", "[PITCHER_TEAM_CITY]", "[PITCHER_TEAM_NICKNAME]", "[BATTER_SCORE]", "[PITCHER_SCORE]", "[RUNS]", "[RUN_DIFF]", "[PARK]", "[BATTER_GM]", "[PITCHER_GM]", "[C]", "[1B]", "[2B]", "[3B]", "[SS]", "[LF]", "[CF]", "[RF]"]

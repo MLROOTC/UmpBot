@@ -16,6 +16,7 @@ config_ini = configparser.ConfigParser()
 config_ini.read('config.ini')
 gm_role_id = int(config_ini['Discord']['gm_role_id'])
 main_server_id = int(config_ini['Discord']['main_guild_id'])
+writeup_reviewer = int(config_ini['Discord']['writeup_reviewer'])
 
 
 class Player(commands.Cog):
@@ -235,6 +236,12 @@ class Player(commands.Cog):
                       description='A link to the umpire handbook, contains additional guidelines and practices not included in the official rulebook.')
     async def handbook(self, ctx):
         await ctx.send(self.config_ini['URLs']['ump_handbook'])
+
+    @commands.command(brief='Import writeups from googel form')
+    @commands.has_role(writeup_reviewer)
+    async def import_writeups(self, ctx):
+        await text_gen.import_templates(ctx)
+        await ctx.send('Done')
 
     @commands.command(brief='Server invite link for the bot',
                       description='Provides an invite link to add the bot to your server. Limited to GMs only.')
@@ -550,12 +557,8 @@ class Player(commands.Cog):
         await ctx.send(self.config_ini['URLs']['team_list'])
 
     @commands.command()
-    async def test(self, ctx):
-        league = 'MLR'
-        season = 8
-        session = 69
-        game_id = 65
-        text_gen.import_templates()
+    async def test(self, ctx, away_score:int, home_score:int, inning_before, inning_after):
+        await ctx.send(robo_ump.is_game_over(away_score, home_score, inning_before, inning_after))
 
     @commands.command(brief='Ump council form',
                       description='Returns a link to the google form for an ump council ruling.')
