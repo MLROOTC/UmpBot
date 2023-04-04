@@ -77,6 +77,10 @@ calc_cell2 = {
     'away_team': 'Starting Lineups!B2',
     'before_swing': 'CalcBE!B3:F3',
     'boxscore': 'Box Score!A1:A77',
+    'current_away_lineup': 'Subs!J4:J12',
+    'current_away_lineup_positions': 'Subs!J4:K14',
+    'current_home_lineup': 'Subs!J22:J30',
+    'current_home_lineup_positions': 'Subs!J22:K32',
     'current_matchup': 'Calc!C6:E6',
     'current_situation': 'Box Score!C3',
     'discord_ping': 'Calc!C23:E26',
@@ -277,6 +281,13 @@ team_cities = {
     'NXS': 'Anxiety',
     'PPM': 'Point Pleasant',
     'SCU': 'Santa Rosa',
+    'CC': 'Columbus',
+    'ESP': 'Kalos',
+    'MOB': 'Miami',
+    'NUT': 'Belize',
+    'QQ': 'Queensland',
+    'SBD': 'Sun Belt',
+    'TXR': 'Texas',
     'IL': 'International League',
     'PCL': 'Pacific Coast League',
 }
@@ -326,14 +337,55 @@ team_nicknames = {
     'NXS': 'Attacks',
     'PPM': 'Mothmen',
     'SCU': 'Scuba Divers',
+    'CC': 'Crowns',
+    'ESP': 'Espurrs',
+    'MOB': 'Orange Bowls',
+    'NUT': 'Nuts',
+    'QQ': 'Quokkas',
+    'SBD': 'Devils',
+    'TXR': 'Rattlesnakes',
     'IL': 'IL All Stars',
-    'PCL': 'PCL All Stars',
+    'PCL': 'PCL All Stars'
 }
 
 writeup_fails = [
     "Wow nobody has created a writeup template for this situation. [You should change that.](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform)",
-    "Lazy humans havne't taught me what to do with this yet. [Send help.](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform)",
+    "Lazy humans haven't taught me what to do with this yet. [Send help.](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform)",
     "It's fine I'll go make my own [writeup](https://docs.google.com/forms/d/e/1FAIpQLSfQ7_EGkGUr3UEiAe-ZSfYovQHJ0VC2leLu-X05sULbnp9DkA/viewform) generator with blackjack and hookers."
 ]
 
 writeup_placeholders = ["[BATTER]", "[BATTER_FULL_NAME]", "[PITCHER]", "[PITCHER_FULL_NAME]", "[HT_CITY]", "[HT_NICKNAME]", "[AT_CITY]", "[AT_NICKNAME]", "[BATTER_TEAM_CITY]", "[BATTER_TEAM_NICKNAME]", "[PITCHER_TEAM_CITY]", "[PITCHER_TEAM_NICKNAME]", "[BATTER_SCORE]", "[PITCHER_SCORE]", "[RUNS]", "[RUN_DIFF]", "[PARK]", "[BATTER_GM]", "[PITCHER_GM]", "[C]", "[1B]", "[2B]", "[3B]", "[SS]", "[LF]", "[CF]", "[RF]"]
+
+result_map = {
+    "HR": "HR",
+    "3B": "3B",
+    "2B": "2B",
+    "1B": "1B",
+    "BB": "BB",
+    "FO": "FO",
+    "K": "K",
+    "PO": "PO",
+    "RGO": "RGO",
+    "LGO": "LGO",
+    "Sac Fly": "Sac - Fly Out",
+    "Bunt 1B": "Bunt Single",
+    "Bunt Sac": "Bunt",
+    "Bunt K": "Bunt K",
+    "Bunt GO": "Bunt GO",
+    "Bunt DP": "Bunt DP",
+    "Steal 2B": "Steal 2B",
+    "Steal 3B": "Steal 3B",
+    "Steal Home": "Steal Home",
+    "MSteal 3B": "Steal 3B",
+    "MSteal Home": "Steal Home",
+    "CS 2B": "CS 2B",
+    "CS 3B": "CS 3B",
+    "CS Home": "CS Home",
+    "CMS 3B": "CS 3B",
+    "CMS Home": "CS Home",
+    "Auto K": "AUTO K",
+    "Auto BB": "AUTO BB",
+    "IBB": "IBB",
+    "DP": "Double Play",
+    "TP": "Triple Play"
+}

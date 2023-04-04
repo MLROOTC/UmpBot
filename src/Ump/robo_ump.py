@@ -1,5 +1,7 @@
 import configparser
 import datetime
+import random
+
 import discord
 from discord.ui import Button, View
 from dhooks import Webhook
@@ -914,7 +916,9 @@ async def result(bot, league, season, session, game_id):
         await dm_channel.send(f'```{pitcher_result}```')
 
         # Generate reddit comment
-        # reddit_comment += f'{flavor.generate_flavor_text(result_type, batter_name)}\n\n'
+        writeup_text = get_flavor_text(league, season, session, game_id, result_type, rbi, away_score, home_score, away_score_after, home_score_after, inning, inning_after, sheet_id)
+        if writeup_text:
+            reddit_comment += f'{writeup_text}\n\n'
         reddit_comment += f'Pitch: {pitch_number}  \nSwing: {swing_number}  \nDiff: {diff} -> {result_type}  \n\n'
         reddit_comment += f'{assets.obc_state[int(obc_after)]} | {inning_after} with {outs_after} out(s)  \n'
         reddit_comment += f'{away_team.upper()} {away_score_after} - {home_team.upper()} {home_score_after}'
@@ -989,6 +993,37 @@ async def update_matchup(league, season, session, game_id):
     return next_matchup[0], next_matchup[3]
 
 
+def get_flavor_text(league, season, session, game_id, result_type, rbi, away_score, home_score, away_score_after, home_score_after, inning, inning_after, sheet_id):
+    run_scores = False
+    game_tying = False
+    go_ahead = False
+    solo_hr = False
+    if rbi != '0' and rbi != '#N/A':
+        run_scores = True
+    if away_score_after == home_score_after:
+        game_tying = True
+    if result_type == 'HR' and rbi == '1':
+        solo_hr = True
+    if 'T' in inning:
+        if away_score < home_score and away_score_after > home_score_after:
+            go_ahead = True
+    else:
+        if home_score < away_score and home_score_after > away_score_after:
+            go_ahead = True
+    game_over, walkoff = is_game_over(away_score_after, home_score_after, inning, inning_after)
+    try:
+        writeup_text = flavor.select_template(result_type, run_scores, walkoff, game_tying, go_ahead, solo_hr)
+        writeup_text = flavor.generate_flavor_text(league, season, session, game_id, writeup_text, rbi, sheet_id)
+        print(writeup_text)
+    except Exception as e:
+        log_msg(f'Failed to generate writeup: [RESULT]{result_type} [RUN SCORES]{run_scores} [WALKOFF]{walkoff} [GAME-TYING]{game_tying} [GO-AHEAD]{go_ahead} [SOLO HR]{solo_hr}`\n > {writeup_text}')
+        log_msg(e)
+        writeup_text = None
+    if writeup_text is None:
+        writeup_text = random.choice(assets.writeup_fails)
+    return writeup_text
+
+
 def get_game_discussion(bot, league):
     return bot.get_channel(int(read_config(league_config, league.upper(), 'game_discussion')))
 
@@ -1045,50 +1080,84 @@ async def starting_lineup(league, season, session, game_id):
 
 async def subs(league, season, session, game_id):
     sheet_id = db.fetch_one('''SELECT sheetID FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s''', (league, season, session, game_id))
+    print(sheet_id)
+    # TODO
+    # loop through current lineups, if they do not exist write them in to the database before updating subs
+    # hopefully this works idk
+    # make a .fix_lineups oak command that deletes everything for this game from the lineups table and then builds it from scratch? idk
     if sheet_id:
         sheet_id = sheet_id[0]
         away_subs = sheets.read_sheet(sheet_id, assets.calc_cell['away_subs'])
         home_subs = sheets.read_sheet(sheet_id, assets.calc_cell['home_subs'])
         away_position_changes = sheets.read_sheet(sheet_id, assets.calc_cell['away_position_changes'])
         home_position_changes = sheets.read_sheet(sheet_id, assets.calc_cell['home_position_changes'])
+        print(away_subs)
+        print(away_position_changes)
+        print(home_subs)
+        print(home_position_changes)
         sql_insert = 'INSERT IGNORE INTO lineups (league, season, session, game_id, player_id, position, batting_order, home, starter) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) '
         for sub in away_subs:
             if sub:
+                print(sub)
                 player_out, player_in, position = sub
                 player_out = get_player_id(player_out)
                 player_in = get_player_id(player_in)
                 batting_order = db.fetch_data('''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player_out, False))
                 if batting_order:
                     batting_order = batting_order[-1][0]
+                else:
+                    batting_order = None
+                    current_lineup = sheets.read_sheet(sheet_id, assets.calc_cell2['current_away_lineup'])
+                    for i in range(len(current_lineup)):
+                        if current_lineup[i] == player_in:
+                            batting_order = i+1
                 data = (league, season, session, game_id, player_in, position, batting_order, 0, 0)
+                print(data)
                 check = db.fetch_one('SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
                 if not check:
                     db.update_database(sql_insert, data)
         for sub in home_subs:
             if sub:
+                print(sub)
                 player_out, player_in, position = sub
                 player_out = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_out,))[0]
                 player_in = db.fetch_one('''SELECT playerID FROM playerData WHERE playerName=%s''', (player_in,))[0]
                 batting_order = db.fetch_data('''SELECT batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player_out, True))
                 if batting_order:
                     batting_order = batting_order[-1][0]
+                else:
+                    batting_order = None
+                    current_lineup = sheets.read_sheet(sheet_id, assets.calc_cell2['current_home_lineup'])
+                    for i in range(len(current_lineup)):
+                        if current_lineup[i] == player_in:
+                            batting_order = i+1
                 data = (league, season, session, game_id, player_in, position, batting_order, 1, 0)
                 check = db.fetch_one( 'SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
                 if not check:
                     db.update_database(sql_insert, data)
         for sub in away_position_changes:
             if sub:
+                print(sub)
                 player, old_pos, new_pos = sub
+                player_name = player
                 player = get_player_id(player)
                 data = db.fetch_data('''SELECT position, batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player, False))
                 if data:
                     position, batting_order = data[-1]
+                    print(batting_order)
+                if not batting_order:
+                    batting_order = None
+                    current_lineup = sheets.read_sheet(sheet_id, assets.calc_cell2['current_away_lineup'])
+                    for i in range(len(current_lineup)):
+                        if current_lineup[i] == player_name:
+                            batting_order = i + 1
                 data = (league, season, session, game_id, player, new_pos, batting_order, 0, 0)
                 check = db.fetch_one('SELECT league, season, session, game_id, player_id, position, batting_order, home, starter FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND position=%s AND batting_order=%s AND home=%s AND starter=%s', data)
                 if not check:
                     db.update_database(sql_insert, data)
         for sub in home_position_changes:
             if sub:
+                print(sub)
                 player, old_pos, new_pos = sub
                 player = get_player_id(player)
                 data = db.fetch_data('''SELECT position, batting_order FROM lineups WHERE league=%s AND season=%s AND session=%s AND game_id=%s AND player_id=%s AND home=%s''', (league, season, session, game_id, player, True))
@@ -1374,3 +1443,22 @@ def player_is_gm(discord_id, team):
         if get_player_id(player_name) == player_id:
             return True
     return False
+
+
+def is_game_over(away_score, home_score, inning_before, inning_after):
+    game_over = False
+    walkoff = False
+    inning_no_before = int(re.findall(r'\d+', inning_before)[0])
+    inning_no_after = int(re.findall(r'\d+', inning_after)[0])
+    if inning_no_before >= 6 and inning_no_after >= 6:
+        if home_score > away_score:
+            if 'T' in inning_before and 'B' in inning_after:
+                game_over = True
+            elif 'B' in inning_before and 'B' in inning_after:
+                game_over = True
+                walkoff = True
+        elif away_score > home_score:
+            if 'B' in inning_before and 'T' in inning_after:
+                game_over = True
+    return game_over, walkoff
+

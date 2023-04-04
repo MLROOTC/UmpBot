@@ -10,29 +10,55 @@ import src.Ump.robo_ump as robo_ump
 config_ini = 'config.ini'
 
 
-def generate_flavor_text(league, season, session, game_id, text, runs):
+def generate_flavor_text(league, season, session, game_id, text, runs, sheet_id):
     sql = '''SELECT current_batter, current_pitcher FROM pitchData WHERE league=%s AND season=%s AND session=%s AND game_id=%s'''
     current_batter, current_pitcher = db.fetch_one(sql, (league, season, session, game_id))
     sql = '''SELECT homeTeam, awayTeam, homeScore, awayScore, inning, outs, obc FROM gameData WHERE league=%s AND season=%s AND session=%s AND gameID=%s'''
     home_team, away_team, home_score, away_score, inning, outs, obc = db.fetch_one(sql, (league, season, session, game_id))
-
+    assets.team_cities.setdefault('default', 'city')
+    assets.team_nicknames.setdefault('default', 'team')
     if 'B' in inning:
-        batter_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (home_team,))
-        pitcher_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (away_team,))
+        try:
+            batter_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (home_team,))
+            pitcher_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (away_team,))
+        except Exception as e:
+            print(e)
+            batter_gm = f"{get_last_name(get_player_name(current_batter))}'s GM"
+            pitcher_gm = f"{get_last_name(get_player_name(current_pitcher))}'s GM"
         batter_score = home_score
         pitcher_score = away_score
         batter_team = home_team
         pitcher_team = away_team
-        current_positions = get_current_lineup(league, season, session, game_id, True)
+        try:
+            current_positions = get_current_lineup(league, season, session, game_id, True)
+        except Exception as e:
+            print(e)
+            current_positions = {}
+            positions = sheets.read_sheet(sheet_id, assets.calc_cell2['current_home_lineup_positions'])
+            for p in positions:
+                if p:
+                    current_positions[p[1]] = p[0]
     else:
-        batter_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (away_team,))
-        pitcher_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (home_team,))
+        try:
+            batter_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (away_team,))
+            pitcher_gm, = db.fetch_one('''SELECT gm FROM teamData WHERE abb=%s''', (home_team,))
+        except Exception as e:
+            print(e)
+            batter_gm = f"{get_last_name(get_player_name(current_batter))}'s GM"
+            pitcher_gm = f"{get_last_name(get_player_name(current_pitcher))}'s GM"
         batter_score = away_score
         pitcher_score = home_score
         batter_team = away_team
         pitcher_team = home_team
-        current_positions = get_current_lineup(league, season, session, game_id, False)
-
+        try:
+            current_positions = get_current_lineup(league, season, session, game_id, False)
+        except Exception as e:
+            print(e)
+            current_positions = {}
+            positions = sheets.read_sheet(sheet_id, assets.calc_cell2['current_away_lineup_positions'])
+            for p in positions:
+                if p:
+                    current_positions[p[1]] = p[0]
     if '[BATTER]' in text.upper():
         text = text.replace('[BATTER]', get_last_name(get_player_name(current_batter)))
     if '[BATTER_FULL_NAME]' in text.upper():
@@ -42,21 +68,21 @@ def generate_flavor_text(league, season, session, game_id, text, runs):
     if '[PITCHER_FULL_NAME]' in text.upper():
         text = text.replace('[PITCHER_FULL_NAME]', get_player_name(current_pitcher))
     if '[HT_CITY]' in text.upper():
-        text = text.replace('[HT_CITY]', assets.team_cities.get(home_team))
+        text = text.replace('[HT_CITY]', assets.team_cities.get(home_team, "home team"))
     if '[AT_CITY]' in text.upper():
-        text = text.replace('[AT_CITY]', assets.team_cities.get(away_team))
+        text = text.replace('[AT_CITY]', assets.team_cities.get(away_team, "away team"))
     if '[HT_NICKNAME]' in text.upper():
-        text = text.replace('[HT_NICKNAME]', assets.team_nicknames.get(home_team))
+        text = text.replace('[HT_NICKNAME]', assets.team_nicknames.get(home_team, "home team's"))
     if '[AT_NICKNAME]' in text.upper():
-        text = text.replace('[AT_NICKNAME]', assets.team_nicknames.get(away_team))
+        text = text.replace('[AT_NICKNAME]', assets.team_nicknames.get(away_team, "away team's"))
     if '[BATTER_TEAM_CITY]' in text.upper():
-        text = text.replace('[BATTER_TEAM_CITY]', assets.team_cities.get(batter_team))
+        text = text.replace('[BATTER_TEAM_CITY]', assets.team_cities.get(batter_team, "team's"))
     if '[PITCHER_TEAM_CITY]' in text.upper():
-        text = text.replace('[PITCHER_TEAM_CITY]', assets.team_cities.get(pitcher_team))
+        text = text.replace('[PITCHER_TEAM_CITY]', assets.team_cities.get(pitcher_team, "team's"))
     if '[BATTER_TEAM_NICKNAME]' in text.upper():
-        text = text.replace('[BATTER_TEAM_NICKNAME]', assets.team_nicknames.get(batter_team))
+        text = text.replace('[BATTER_TEAM_NICKNAME]', assets.team_nicknames.get(batter_team, "team's"))
     if '[PITCHER_TEAM_NICKNAME]' in text.upper():
-        text = text.replace('[PITCHER_TEAM_NICKNAME]', assets.team_nicknames.get(pitcher_team))
+        text = text.replace('[PITCHER_TEAM_NICKNAME]', assets.team_nicknames.get(pitcher_team, "team's"))
     if '[BATTER_SCORE]' in text.upper():
         text = text.replace('[BATTER_SCORE]', f'{batter_score}')
     if '[PITCHER_SCORE]' in text.upper():
@@ -64,7 +90,7 @@ def generate_flavor_text(league, season, session, game_id, text, runs):
     if '[RUNS]' in text.upper():
         text = text.replace('[RUNS]', f'{runs}')
     if '[RUN_DIFF]' in text.upper():
-        text = text.replace('[RUN_DIFF]', f'{abs(batter_score - pitcher_score)}')
+        text = text.replace('[RUN_DIFF]', f'{abs(int(batter_score) - int(pitcher_score))}')
     if '[PARK]' in text.upper():
         text = text.replace('[PARK]', f'{get_park(home_team)}')
     if '[BATTER_GM]' in text.upper():
@@ -119,7 +145,11 @@ def get_player_name(player_id):
 
 
 def get_park(team):
-    park_name, = db.fetch_one('''SELECT parkName FROM parkFactors WHERE team=%s''', (team,))
+    try:
+        park_name, = db.fetch_one('''SELECT parkName FROM parkFactors WHERE team=%s''', (team,))
+    except Exception as e:
+        print(e)
+        park_name = 'the ballpark'
     return park_name
 
 
@@ -164,7 +194,11 @@ async def import_templates(ctx):
 
 def select_template(result_type, run_scores, walkoff, game_tying, go_ahead, solo_hr):
     sql = '''SELECT text FROM flavorText WHERE result=%s AND run_scores=%s AND walkoff=%s AND game_tying=%s AND go_ahead=%s AND solo_hr=%s ORDER BY RAND() LIMIT 1'''
-    text = db.fetch_one(sql, (result_type, run_scores, walkoff, game_tying, go_ahead, solo_hr))
+    text = db.fetch_one(sql, (assets.result_map.get(result_type), run_scores, walkoff, game_tying, go_ahead, solo_hr))
+    if text:
+        return text[0]
+    sql = '''SELECT text FROM flavorText WHERE result=%s AND run_scores=%s AND walkoff=%s AND game_tying=%s AND go_ahead=%s AND solo_hr=%s ORDER BY RAND() LIMIT 1'''
+    text = db.fetch_one(sql, (assets.result_map.get(result_type), None, None, None, None, None))
     if text:
         return text[0]
     return random.choice(assets.writeup_fails)
