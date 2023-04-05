@@ -30,11 +30,11 @@ def generate_flavor_text(league, season, session, game_id, text, runs, sheet_id)
         batter_team = home_team
         pitcher_team = away_team
         try:
-            current_positions = get_current_lineup(league, season, session, game_id, True)
+            current_positions = get_current_lineup(league, season, session, game_id, False)
         except Exception as e:
             print(e)
             current_positions = {}
-            positions = sheets.read_sheet(sheet_id, assets.calc_cell2['current_home_lineup_positions'])
+            positions = sheets.read_sheet(sheet_id, assets.calc_cell2['current_away_lineup_positions'])
             for p in positions:
                 if p:
                     current_positions[p[1]] = p[0]
@@ -51,11 +51,11 @@ def generate_flavor_text(league, season, session, game_id, text, runs, sheet_id)
         batter_team = away_team
         pitcher_team = home_team
         try:
-            current_positions = get_current_lineup(league, season, session, game_id, False)
+            current_positions = get_current_lineup(league, season, session, game_id, True)
         except Exception as e:
             print(e)
             current_positions = {}
-            positions = sheets.read_sheet(sheet_id, assets.calc_cell2['current_away_lineup_positions'])
+            positions = sheets.read_sheet(sheet_id, assets.calc_cell2['current_home_lineup_positions'])
             for p in positions:
                 if p:
                     current_positions[p[1]] = p[0]
@@ -197,8 +197,10 @@ def select_template(result_type, run_scores, walkoff, game_tying, go_ahead, solo
     text = db.fetch_one(sql, (assets.result_map.get(result_type), run_scores, walkoff, game_tying, go_ahead, solo_hr))
     if text:
         return text[0]
-    sql = '''SELECT text FROM flavorText WHERE result=%s AND run_scores=%s AND walkoff=%s AND game_tying=%s AND go_ahead=%s AND solo_hr=%s ORDER BY RAND() LIMIT 1'''
-    text = db.fetch_one(sql, (assets.result_map.get(result_type), None, None, None, None, None))
+    if result_type == 'HR':
+        text = db.fetch_one(sql, (assets.result_map.get(result_type), True, None, None, None, None))
+    else:
+        text = db.fetch_one(sql, (assets.result_map.get(result_type), None, None, None, None, None))
     if text:
         return text[0]
     return random.choice(assets.writeup_fails)

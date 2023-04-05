@@ -73,7 +73,7 @@ async def create_ump_sheets(bot, session: int):
 
                 # Append sheet ID to PA Log Data Gathering Sheet
                 if league.upper() != 'SCRIM':
-                    backend_sheet = read_config(config_ini, 'URLs', 'backend_sheet_id')
+                    backend_sheet = read_config(config_ini, 'URLs', 'pa_log_backend_sheet_id')
                     page_name = assets.calc_cell2['game_sheet_input']
                     data = (str(datetime.datetime.now()), None, None, sheet_id, league, season, session, game_id, away_team, home_team)
                     sheets.append_sheet(backend_sheet, page_name, data)
@@ -462,7 +462,7 @@ def get_sheet(league, season, session, game_id):
 
 def get_swing_from_reddit(reddit_comment_url):
     swing_comment = reddit.get_comment(reddit_comment_url)
-    numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
+    numbers_in_comment = [int(i) for i in swing_comment.body.replace('.', ' ').split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
         if swing == 0:
@@ -500,7 +500,7 @@ def get_swing_from_reddit(reddit_comment_url):
 
 async def get_swing_from_reddit_async(reddit_comment_url):
     swing_comment = await reddit.get_comment_async(reddit_comment_url)
-    numbers_in_comment = [int(i) for i in swing_comment.body.split() if i.isdigit()]
+    numbers_in_comment = [int(i) for i in swing_comment.body.replace('.', ' ').split() if i.isdigit()]
     if len(numbers_in_comment) == 1:
         swing = numbers_in_comment[0]
         if swing == 0:
@@ -1000,15 +1000,15 @@ def get_flavor_text(league, season, session, game_id, result_type, rbi, away_sco
     solo_hr = False
     if rbi != '0' and rbi != '#N/A':
         run_scores = True
-    if away_score_after == home_score_after:
+    if away_score_after == home_score_after and run_scores:
         game_tying = True
     if result_type == 'HR' and rbi == '1':
         solo_hr = True
     if 'T' in inning:
-        if away_score < home_score and away_score_after > home_score_after:
+        if away_score <= home_score and away_score_after > home_score_after:
             go_ahead = True
     else:
-        if home_score < away_score and home_score_after > away_score_after:
+        if home_score <= away_score and home_score_after > away_score_after:
             go_ahead = True
     game_over, walkoff = is_game_over(away_score_after, home_score_after, inning, inning_after)
     try:
