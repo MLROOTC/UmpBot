@@ -1,3 +1,6 @@
+# THIS PROJECT IS OUTDATED AND HAS BEEN MOVED TO GITLAB
+https://gitlab.com/r-fakebaseball/ump-bot
+
 # Quick Setup Guide
 
 ## Config.ini
